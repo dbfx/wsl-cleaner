@@ -37,6 +37,12 @@ contextBridge.exposeInMainWorld('wslCleaner', {
   // Health info
   getHealthInfo: (distro) => ipcRenderer.invoke('get-health-info', distro),
 
+  // Performance benchmarking
+  benchmarkStartupTime: (opts) => ipcRenderer.invoke('benchmark-startup-time', opts),
+  profileShellStartup: (opts) => ipcRenderer.invoke('profile-shell-startup', opts),
+  getBenchmarkHistory: () => ipcRenderer.invoke('get-benchmark-history'),
+  saveBenchmarkRecord: (record) => ipcRenderer.invoke('save-benchmark-record', record),
+
   // Startup Manager
   getStartupServices: (distro) => ipcRenderer.invoke('get-startup-services', distro),
   setServiceState: (opts) => ipcRenderer.invoke('set-service-state', opts),
@@ -56,6 +62,17 @@ contextBridge.exposeInMainWorld('wslCleaner', {
   cloneDistro: (opts) => ipcRenderer.invoke('clone-distro', opts),
   restartDistro: (opts) => ipcRenderer.invoke('restart-distro', opts),
   getDistroComparison: (distros) => ipcRenderer.invoke('get-distro-comparison', distros),
+
+  // Distro migration
+  getDefaultUser: (distro) => ipcRenderer.invoke('get-default-user', distro),
+  getDriveSpace: (drivePath) => ipcRenderer.invoke('get-drive-space', drivePath),
+  unregisterDistro: (opts) => ipcRenderer.invoke('unregister-distro', opts),
+  migrateDistro: (opts) => ipcRenderer.invoke('migrate-distro', opts),
+  onMigrateStep: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('migrate-step', handler);
+    return () => ipcRenderer.removeListener('migrate-step', handler);
+  },
   showSaveDialog: (opts) => ipcRenderer.invoke('show-save-dialog', opts),
   showOpenDialog: (opts) => ipcRenderer.invoke('show-open-dialog', opts),
 

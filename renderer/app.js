@@ -409,6 +409,9 @@ function switchPage(pageName) {
 
   // Render startup manager page
   if (pageName === 'startup') renderStartupPage();
+
+  // Render performance page
+  if (pageName === 'performance') renderPerformancePage();
 }
 
 // Wire sidebar clicks
@@ -3168,6 +3171,9 @@ function renderDistroTable(comparisonData, vhdxFiles) {
     html += '<button class="distro-action-btn" data-action="restart" data-distro="' + escapeHtml(d.name) + '" title="' + t('distros.restart') + '">';
     html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
     html += t('distros.restart') + '</button>';
+    html += '<button class="distro-action-btn" data-action="migrate" data-distro="' + escapeHtml(d.name) + '" title="' + t('distros.migrate') + '">';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9,14 12,17 15,14"/></svg>';
+    html += t('distros.migrate') + '</button>';
     html += '</div></td>';
     html += '</tr>';
   }
@@ -3184,6 +3190,7 @@ function renderDistroTable(comparisonData, vhdxFiles) {
       if (action === 'export') handleExportDistro(distro);
       else if (action === 'clone') handleCloneDistro(distro);
       else if (action === 'restart') handleRestartDistro(distro);
+      else if (action === 'migrate') handleMigrateDistro(distro);
     });
   });
 }
@@ -3491,6 +3498,378 @@ localeSelect.addEventListener('change', async () => {
   if (state.currentPage === 'diskmap') renderDiskMap();
   if (state.currentPage === 'health') renderHealthPage();
   if (state.currentPage === 'distros') renderDistrosPage();
+});
+
+// ── Migration Wizard ─────────────────────────────────────────────────────────
+
+let _migrateState = {
+  distro: null,
+  vhdxPath: null,
+  vhdxSize: 0,
+  defaultUser: null,
+  destinationPath: '',
+  freeSpace: 0,
+  keepBackup: false,
+  currentStep: 1,
+  isRunning: false,
+};
+let _migrateStepCleanup = null;
+let _migrateOutputCleanup = null;
+let _migrateElapsedInterval = null;
+
+const migrateModal = document.getElementById('migrate-modal');
+const migrateDestPath = document.getElementById('migrate-dest-path');
+const migrateSpaceInfo = document.getElementById('migrate-space-info');
+const migrateSpaceRequired = document.getElementById('migrate-space-required');
+const migrateSpaceAvailable = document.getElementById('migrate-space-available');
+const migrateSpaceWarning = document.getElementById('migrate-space-warning');
+const migrateSpaceWarningText = document.getElementById('migrate-space-warning-text');
+const migrateKeepBackup = document.getElementById('migrate-keep-backup');
+const migrateLog = document.getElementById('migrate-log');
+const migrateProgressFill = document.getElementById('migrate-progress-fill');
+const migrateStepCounter = document.getElementById('migrate-step-counter');
+const migrateElapsed = document.getElementById('migrate-elapsed');
+
+async function handleMigrateDistro(distro) {
+  // Reset state
+  _migrateState = {
+    distro,
+    vhdxPath: null,
+    vhdxSize: 0,
+    defaultUser: null,
+    destinationPath: '',
+    freeSpace: 0,
+    keepBackup: false,
+    currentStep: 1,
+    isRunning: false,
+  };
+
+  // Discover VHDX info for this distro
+  try {
+    const vhdxFiles = await window.wslCleaner.findVhdx();
+    const distroLower = distro.toLowerCase();
+    for (const v of vhdxFiles) {
+      if (v.folder.toLowerCase().includes(distroLower) || v.path.toLowerCase().includes(distroLower)) {
+        _migrateState.vhdxPath = v.path;
+        _migrateState.vhdxSize = v.size;
+        break;
+      }
+    }
+  } catch { /* ignore */ }
+
+  // Populate info banner
+  document.getElementById('migrate-info-distro').textContent = distro;
+  document.getElementById('migrate-info-path').textContent = _migrateState.vhdxPath || t('distros.sizeUnknown');
+  document.getElementById('migrate-info-size').textContent = _migrateState.vhdxSize ? formatBytes(_migrateState.vhdxSize) : t('distros.sizeUnknown');
+
+  // Reset form
+  migrateDestPath.value = '';
+  migrateSpaceInfo.classList.add('hidden');
+  migrateSpaceWarning.classList.add('hidden');
+  document.getElementById('migrate-next-1').disabled = true;
+  migrateKeepBackup.checked = false;
+  migrateLog.textContent = '';
+  if (migrateProgressFill) migrateProgressFill.style.width = '0%';
+
+  // Show modal at step 1
+  showMigrateStep(1);
+  migrateModal.classList.remove('hidden');
+  applyI18n(migrateModal);
+}
+
+function showMigrateStep(stepNum) {
+  _migrateState.currentStep = stepNum;
+  for (let i = 1; i <= 4; i++) {
+    const panel = document.getElementById('migrate-step-' + i);
+    if (panel) panel.classList.toggle('hidden', i !== stepNum);
+  }
+  migrateModal.querySelectorAll('.migrate-stepper-step').forEach(el => {
+    const step = parseInt(el.dataset.wizardStep, 10);
+    el.classList.remove('active', 'completed');
+    if (step === stepNum) el.classList.add('active');
+    else if (step < stepNum) el.classList.add('completed');
+  });
+}
+
+function closeMigrateModal() {
+  if (_migrateState.isRunning) return;
+  migrateModal.classList.add('hidden');
+  if (_migrateStepCleanup) { _migrateStepCleanup(); _migrateStepCleanup = null; }
+  if (_migrateOutputCleanup) { _migrateOutputCleanup(); _migrateOutputCleanup = null; }
+  if (_migrateElapsedInterval) { clearInterval(_migrateElapsedInterval); _migrateElapsedInterval = null; }
+}
+
+let _migrateValidateTimer = null;
+async function validateMigrateDestination() {
+  const destPath = migrateDestPath.value.trim();
+  if (!destPath) {
+    migrateSpaceInfo.classList.add('hidden');
+    migrateSpaceWarning.classList.add('hidden');
+    document.getElementById('migrate-next-1').disabled = true;
+    return;
+  }
+
+  _migrateState.destinationPath = destPath;
+
+  // Check if same drive as current
+  if (_migrateState.vhdxPath) {
+    const currentDrive = _migrateState.vhdxPath.match(/^([A-Za-z]):/);
+    const destDrive = destPath.match(/^([A-Za-z]):/);
+    if (currentDrive && destDrive && currentDrive[1].toUpperCase() === destDrive[1].toUpperCase()) {
+      migrateSpaceInfo.classList.add('hidden');
+      migrateSpaceWarning.classList.remove('hidden');
+      migrateSpaceWarningText.textContent = t('migrate.dest.samePath');
+      document.getElementById('migrate-next-1').disabled = true;
+      return;
+    }
+  }
+
+  // Check drive space
+  const spaceResult = await window.wslCleaner.getDriveSpace(destPath);
+  migrateSpaceInfo.classList.remove('hidden');
+
+  const requiredBytes = Math.ceil(_migrateState.vhdxSize * 1.1) || 0;
+  migrateSpaceRequired.textContent = requiredBytes ? formatBytes(requiredBytes) : t('distros.sizeUnknown');
+
+  if (spaceResult.ok) {
+    _migrateState.freeSpace = spaceResult.freeBytes;
+    migrateSpaceAvailable.textContent = formatBytes(spaceResult.freeBytes);
+
+    if (requiredBytes > 0 && spaceResult.freeBytes < requiredBytes) {
+      migrateSpaceWarning.classList.remove('hidden');
+      migrateSpaceWarningText.textContent = t('migrate.dest.insufficientSpace');
+      document.getElementById('migrate-next-1').disabled = true;
+    } else {
+      migrateSpaceWarning.classList.add('hidden');
+      document.getElementById('migrate-next-1').disabled = false;
+    }
+  } else {
+    migrateSpaceAvailable.textContent = t('distros.sizeUnknown');
+    migrateSpaceWarning.classList.add('hidden');
+    document.getElementById('migrate-next-1').disabled = false;
+  }
+}
+
+async function prepareMigrateConfirmation() {
+  document.getElementById('migrate-summary-distro').textContent = _migrateState.distro;
+  document.getElementById('migrate-summary-current').textContent = _migrateState.vhdxPath || t('distros.sizeUnknown');
+  document.getElementById('migrate-summary-dest').textContent = _migrateState.destinationPath;
+  document.getElementById('migrate-summary-size').textContent = _migrateState.vhdxSize ? formatBytes(_migrateState.vhdxSize) : t('distros.sizeUnknown');
+
+  // Detect default user
+  const userEl = document.getElementById('migrate-summary-user');
+  userEl.textContent = '...';
+  try {
+    const userResult = await window.wslCleaner.getDefaultUser(_migrateState.distro);
+    if (userResult.ok) {
+      _migrateState.defaultUser = userResult.user;
+      userEl.textContent = userResult.user;
+    } else {
+      _migrateState.defaultUser = null;
+      userEl.textContent = t('distros.sizeUnknown');
+    }
+  } catch {
+    _migrateState.defaultUser = null;
+    userEl.textContent = t('distros.sizeUnknown');
+  }
+}
+
+function setMigrateStepState(stepName, status) {
+  const container = document.getElementById('migrate-steps');
+  const item = container.querySelector('.step-item[data-step="' + stepName + '"]');
+  if (!item) return;
+
+  item.classList.remove('active', 'done', 'failed');
+  const iconSlot = item.querySelector('.step-icon-slot');
+
+  if (status === 'active') {
+    item.classList.add('active');
+    iconSlot.innerHTML = '<div class="step-spinner"></div>';
+  } else if (status === 'done') {
+    item.classList.add('done');
+    iconSlot.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg>';
+  } else if (status === 'failed') {
+    item.classList.add('failed');
+    iconSlot.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  }
+
+  // Update progress bar
+  const allSteps = container.querySelectorAll('.step-item');
+  let total = allSteps.length, done = 0, hasActive = false;
+  allSteps.forEach(s => {
+    if (s.classList.contains('done') || s.classList.contains('failed')) done++;
+    if (s.classList.contains('active')) hasActive = true;
+  });
+  const progress = total > 0 ? ((done + (hasActive ? 0.5 : 0)) / total) * 100 : 0;
+  if (migrateProgressFill) migrateProgressFill.style.width = Math.min(progress, 100) + '%';
+  if (migrateStepCounter) migrateStepCounter.textContent = t('simple.stepOf', { current: done + (hasActive ? 1 : 0), total });
+}
+
+async function startMigration() {
+  _migrateState.isRunning = true;
+  _migrateState.keepBackup = migrateKeepBackup.checked;
+
+  showMigrateStep(3);
+
+  // Clear log
+  migrateLog.textContent = '';
+
+  // Render step numbers
+  const allSteps = document.querySelectorAll('#migrate-steps .step-item');
+  let idx = 0;
+  allSteps.forEach(item => {
+    idx++;
+    item.classList.remove('active', 'done', 'failed');
+    item.querySelector('.step-icon-slot').innerHTML = '<div class="step-number">' + idx + '</div>';
+  });
+
+  // Start elapsed timer
+  const startTime = Date.now();
+  migrateElapsed.textContent = '0:00';
+  _migrateElapsedInterval = setInterval(() => {
+    const secs = Math.floor((Date.now() - startTime) / 1000);
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    migrateElapsed.textContent = m + ':' + String(s).padStart(2, '0');
+  }, 1000);
+
+  // Listen for step progress
+  _migrateStepCleanup = window.wslCleaner.onMigrateStep((data) => {
+    setMigrateStepState(data.step, data.status);
+  });
+
+  // Listen for log output
+  _migrateOutputCleanup = window.wslCleaner.onTaskOutput((data) => {
+    if (data.taskId === 'migrate-distro') {
+      migrateLog.textContent += data.text;
+      migrateLog.scrollTop = migrateLog.scrollHeight;
+    }
+  });
+
+  // Invoke the migration
+  const result = await window.wslCleaner.migrateDistro({
+    distro: _migrateState.distro,
+    destinationPath: _migrateState.destinationPath,
+    defaultUser: _migrateState.defaultUser,
+    keepBackup: _migrateState.keepBackup,
+    taskId: 'migrate-distro',
+  });
+
+  // Stop timer
+  if (_migrateElapsedInterval) {
+    clearInterval(_migrateElapsedInterval);
+    _migrateElapsedInterval = null;
+  }
+
+  // Remove listeners
+  if (_migrateStepCleanup) { _migrateStepCleanup(); _migrateStepCleanup = null; }
+  if (_migrateOutputCleanup) { _migrateOutputCleanup(); _migrateOutputCleanup = null; }
+
+  _migrateState.isRunning = false;
+
+  // Show result
+  showMigrateResult(result);
+
+  // Refresh distro list
+  try {
+    const wslResult = await window.wslCleaner.checkWsl();
+    if (wslResult.ok) {
+      state.distros = wslResult.distros;
+      renderDistroPicker();
+      if (state.currentPage === 'distros') renderDistrosPage();
+    }
+  } catch { /* ignore */ }
+}
+
+function showMigrateResult(result) {
+  showMigrateStep(4);
+
+  const successEl = document.getElementById('migrate-result-success');
+  const failureEl = document.getElementById('migrate-result-failure');
+
+  if (result.ok) {
+    successEl.classList.remove('hidden');
+    failureEl.classList.add('hidden');
+
+    let summaryHtml = '';
+    summaryHtml += '<div class="migrate-summary-row">';
+    summaryHtml += '<span class="migrate-summary-label">' + t('migrate.confirm.distro') + '</span>';
+    summaryHtml += '<span class="migrate-summary-value">' + escapeHtml(_migrateState.distro) + '</span>';
+    summaryHtml += '</div>';
+    summaryHtml += '<div class="migrate-summary-row">';
+    summaryHtml += '<span class="migrate-summary-label">' + t('migrate.result.newLocation') + '</span>';
+    summaryHtml += '<span class="migrate-summary-value mono">' + escapeHtml(_migrateState.destinationPath) + '</span>';
+    summaryHtml += '</div>';
+    document.getElementById('migrate-result-summary').innerHTML = summaryHtml;
+
+    const backupEl = document.getElementById('migrate-result-backup');
+    if (result.tarPath) {
+      backupEl.classList.remove('hidden');
+      document.getElementById('migrate-result-backup-path').textContent = t('migrate.result.backupKept', { path: result.tarPath });
+    } else {
+      backupEl.classList.add('hidden');
+    }
+  } else {
+    successEl.classList.add('hidden');
+    failureEl.classList.remove('hidden');
+    document.getElementById('migrate-fail-message').textContent = result.error || t('error.unknown');
+
+    const tarInfoEl = document.getElementById('migrate-fail-tar-info');
+    if (result.tarPath) {
+      tarInfoEl.style.display = '';
+      document.getElementById('migrate-fail-tar-path').textContent = t('migrate.result.tarPreserved', { path: result.tarPath });
+    } else {
+      tarInfoEl.style.display = 'none';
+    }
+  }
+}
+
+// Migration wizard event wiring
+document.getElementById('migrate-modal-close').addEventListener('click', closeMigrateModal);
+migrateModal.addEventListener('click', (e) => {
+  if (e.target === migrateModal) closeMigrateModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !migrateModal.classList.contains('hidden') && !_migrateState.isRunning) {
+    closeMigrateModal();
+  }
+});
+
+// Step 1: Destination
+document.getElementById('migrate-browse').addEventListener('click', async () => {
+  const result = await window.wslCleaner.showOpenDialog({
+    title: t('migrate.dest.browseTitle'),
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (!result.canceled && result.filePaths.length > 0) {
+    migrateDestPath.value = result.filePaths[0];
+    await validateMigrateDestination();
+  }
+});
+
+migrateDestPath.addEventListener('input', () => {
+  clearTimeout(_migrateValidateTimer);
+  _migrateValidateTimer = setTimeout(() => validateMigrateDestination(), 500);
+});
+
+document.getElementById('migrate-next-1').addEventListener('click', async () => {
+  _migrateState.destinationPath = migrateDestPath.value.trim();
+  await prepareMigrateConfirmation();
+  showMigrateStep(2);
+});
+
+// Step 2: Confirm
+document.getElementById('migrate-back-2').addEventListener('click', () => showMigrateStep(1));
+document.getElementById('migrate-start').addEventListener('click', () => startMigration());
+
+// Step 4: Reset
+document.getElementById('migrate-reset').addEventListener('click', () => {
+  closeMigrateModal();
+});
+
+// Log toggle
+document.getElementById('migrate-log-toggle').addEventListener('click', () => {
+  migrateLog.classList.toggle('hidden');
 });
 
 // ── Config Editor Page ───────────────────────────────────────────────────────
@@ -4212,4 +4591,398 @@ document.addEventListener('locale-changed', () => {
   if (state.currentPage === 'health') renderHealthPage();
   if (state.currentPage === 'distros') renderDistrosPage();
   if (state.currentPage === 'startup') renderStartupPage();
+  if (state.currentPage === 'performance') renderPerformancePage();
 });
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ── Performance Page ─────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+
+const perfDistroSelect = document.getElementById('perf-distro');
+const perfTabBenchmark = document.getElementById('perf-tab-benchmark');
+const perfTabProfiler = document.getElementById('perf-tab-profiler');
+const perfPanelBenchmark = document.getElementById('perf-panel-benchmark');
+const perfPanelProfiler = document.getElementById('perf-panel-profiler');
+
+// Benchmark elements
+const btnRunBenchmark = document.getElementById('btn-run-benchmark');
+const perfBenchAllDistros = document.getElementById('perf-bench-all-distros');
+const perfBenchContent = document.getElementById('perf-bench-content');
+const perfBenchLoading = document.getElementById('perf-bench-loading');
+const perfBenchEmpty = document.getElementById('perf-bench-empty');
+const perfBenchError = document.getElementById('perf-bench-error');
+const perfBenchErrorMsg = document.getElementById('perf-bench-error-msg');
+const perfBenchResults = document.getElementById('perf-bench-results');
+const perfBenchList = document.getElementById('perf-bench-list');
+const perfBenchHistory = document.getElementById('perf-bench-history');
+const perfBenchChart = document.getElementById('perf-bench-chart');
+const perfBenchSuggest = document.getElementById('perf-bench-suggest');
+const perfBenchSuggestList = document.getElementById('perf-bench-suggest-list');
+
+// Profiler elements
+const btnRunProfiler = document.getElementById('btn-run-profiler');
+const perfProfContent = document.getElementById('perf-prof-content');
+const perfProfLoading = document.getElementById('perf-prof-loading');
+const perfProfEmpty = document.getElementById('perf-prof-empty');
+const perfProfError = document.getElementById('perf-prof-error');
+const perfProfErrorMsg = document.getElementById('perf-prof-error-msg');
+const perfProfShellInfo = document.getElementById('perf-prof-shell-info');
+const perfProfShellName = document.getElementById('perf-prof-shell-name');
+const perfProfTiming = document.getElementById('perf-prof-timing');
+const perfProfTotal = document.getElementById('perf-prof-total');
+const perfProfBaseline = document.getElementById('perf-prof-baseline');
+const perfProfOverhead = document.getElementById('perf-prof-overhead');
+const perfProfItems = document.getElementById('perf-prof-items');
+const perfProfItemsList = document.getElementById('perf-prof-items-list');
+const perfProfFiles = document.getElementById('perf-prof-files');
+const perfProfFilesList = document.getElementById('perf-prof-files-list');
+
+let perfCurrentTab = 'benchmark';
+let perfBenchChartInstance = null;
+
+// ── Page init ────────────────────────────────────────────────────────────────
+
+function renderPerformancePage() {
+  populatePerfDistros();
+
+  // Show the active tab's empty state
+  if (perfCurrentTab === 'benchmark') {
+    if (!perfBenchContent.classList.contains('hidden') || !perfBenchLoading.classList.contains('hidden')) {
+      // Already has results or loading, don't reset
+    } else {
+      showPerfBenchmarkState('empty');
+    }
+  } else {
+    if (!perfProfContent.classList.contains('hidden') || !perfProfLoading.classList.contains('hidden')) {
+      // Already has results or loading, don't reset
+    } else {
+      showPerfProfilerState('empty');
+    }
+  }
+}
+
+function populatePerfDistros() {
+  perfDistroSelect.innerHTML = '';
+  for (const d of state.distros) {
+    const opt = document.createElement('option');
+    opt.value = d.name;
+    opt.textContent = d.name + (d.isDefault ? ' \u2605' : '');
+    if (state.selectedDistros.includes(d.name)) opt.selected = true;
+    perfDistroSelect.appendChild(opt);
+  }
+}
+
+// ── Tab switching ────────────────────────────────────────────────────────────
+
+perfTabBenchmark.addEventListener('click', () => {
+  perfCurrentTab = 'benchmark';
+  perfTabBenchmark.classList.add('active');
+  perfTabProfiler.classList.remove('active');
+  perfPanelBenchmark.classList.remove('hidden');
+  perfPanelProfiler.classList.add('hidden');
+});
+
+perfTabProfiler.addEventListener('click', () => {
+  perfCurrentTab = 'profiler';
+  perfTabProfiler.classList.add('active');
+  perfTabBenchmark.classList.remove('active');
+  perfPanelProfiler.classList.remove('hidden');
+  perfPanelBenchmark.classList.add('hidden');
+});
+
+// ── Benchmark state management ───────────────────────────────────────────────
+
+function showPerfBenchmarkState(which) {
+  perfBenchContent.classList.add('hidden');
+  perfBenchLoading.classList.add('hidden');
+  perfBenchEmpty.classList.add('hidden');
+  perfBenchError.classList.add('hidden');
+  if (which === 'content') perfBenchContent.classList.remove('hidden');
+  else if (which === 'loading') perfBenchLoading.classList.remove('hidden');
+  else if (which === 'empty') perfBenchEmpty.classList.remove('hidden');
+  else if (which === 'error') perfBenchError.classList.remove('hidden');
+}
+
+// ── Run benchmark ────────────────────────────────────────────────────────────
+
+btnRunBenchmark.addEventListener('click', async () => {
+  const benchAll = perfBenchAllDistros.checked;
+  const distros = benchAll ? state.distros.map(d => d.name) : [perfDistroSelect.value];
+
+  if (!distros.length || !distros[0]) {
+    showPerfBenchmarkState('empty');
+    return;
+  }
+
+  // Warn user that wsl --shutdown will kill all instances
+  const msg = t('performance.shutdownWarning');
+  if (!confirm(msg)) return;
+
+  showPerfBenchmarkState('loading');
+
+  try {
+    const result = await window.wslCleaner.benchmarkStartupTime({ distros });
+
+    if (!result.ok) {
+      perfBenchErrorMsg.textContent = result.error || t('performance.benchmarkError');
+      showPerfBenchmarkState('error');
+      return;
+    }
+
+    populateBenchmarkResults(result.data);
+    showPerfBenchmarkState('content');
+
+    // Save to history
+    try {
+      await window.wslCleaner.saveBenchmarkRecord({ results: result.data.results });
+    } catch (e) {
+      console.warn('[Performance] Failed to save benchmark history:', e);
+    }
+
+    // Refresh history chart
+    loadBenchmarkHistory();
+  } catch (err) {
+    perfBenchErrorMsg.textContent = (err.message || String(err));
+    showPerfBenchmarkState('error');
+  }
+});
+
+function populateBenchmarkResults(data) {
+  perfBenchList.innerHTML = '';
+  perfBenchSuggestList.innerHTML = '';
+
+  const results = [...data.results].sort((a, b) => a.bootTimeSeconds - b.bootTimeSeconds);
+
+  results.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'perf-bench-row';
+
+    let statusClass, statusLabel;
+    if (item.bootTimeSeconds < 0) {
+      statusClass = 'error';
+      statusLabel = t('performance.failed');
+    } else if (item.bootTimeSeconds < 1) {
+      statusClass = 'fast';
+      statusLabel = t('performance.fast');
+    } else if (item.bootTimeSeconds < 3) {
+      statusClass = 'normal';
+      statusLabel = t('performance.normal');
+    } else {
+      statusClass = 'slow';
+      statusLabel = t('performance.slow');
+    }
+
+    const timeDisplay = item.bootTimeSeconds < 0
+      ? '<span class="perf-bench-time perf-bench-error-text">' + escapeHtml(item.error || 'Error') + '</span>'
+      : '<span class="perf-bench-time">' + item.bootTimeSeconds.toFixed(3) + 's</span>';
+
+    row.innerHTML =
+      '<div class="perf-bench-distro">' +
+        '<span class="perf-bench-name">' + escapeHtml(item.distro) + '</span>' +
+        '<span class="perf-bench-badge perf-bench-' + statusClass + '">' + escapeHtml(statusLabel) + '</span>' +
+      '</div>' +
+      timeDisplay;
+
+    perfBenchList.appendChild(row);
+  });
+
+  perfBenchResults.classList.remove('hidden');
+
+  // Generate suggestions for slow distros
+  const slowDistros = results.filter(r => r.bootTimeSeconds >= 3);
+  if (slowDistros.length > 0) {
+    slowDistros.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'perf-suggest-card';
+      card.innerHTML =
+        '<div class="perf-suggest-header"><strong>' + escapeHtml(item.distro) + '</strong> \u2014 ' + item.bootTimeSeconds.toFixed(2) + 's</div>' +
+        '<ul class="perf-suggest-list">' +
+          '<li>' + escapeHtml(t('performance.suggestion.wslconfig')) + '</li>' +
+          '<li>' + escapeHtml(t('performance.suggestion.systemd')) + '</li>' +
+          '<li>' + escapeHtml(t('performance.suggestion.startupServices')) + '</li>' +
+        '</ul>';
+      perfBenchSuggestList.appendChild(card);
+    });
+    perfBenchSuggest.classList.remove('hidden');
+  } else {
+    perfBenchSuggest.classList.add('hidden');
+  }
+}
+
+// ── Benchmark history chart ──────────────────────────────────────────────────
+
+async function loadBenchmarkHistory() {
+  try {
+    const history = await window.wslCleaner.getBenchmarkHistory();
+    if (!history || history.length === 0) {
+      perfBenchHistory.classList.add('hidden');
+      return;
+    }
+    renderBenchmarkHistoryChart(history);
+    perfBenchHistory.classList.remove('hidden');
+  } catch (err) {
+    console.warn('[Performance] Failed to load history:', err);
+    perfBenchHistory.classList.add('hidden');
+  }
+}
+
+function renderBenchmarkHistoryChart(history) {
+  // Group by distro
+  const distroMap = {};
+  const labels = [];
+
+  history.forEach(record => {
+    const label = new Date(record.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    labels.push(label);
+    record.results.forEach(r => {
+      if (!distroMap[r.distro]) distroMap[r.distro] = [];
+    });
+  });
+
+  // Fill data arrays (null for missing entries)
+  const distroNames = Object.keys(distroMap);
+  history.forEach(record => {
+    const resultMap = {};
+    record.results.forEach(r => { resultMap[r.distro] = r.bootTimeSeconds; });
+    distroNames.forEach(name => {
+      distroMap[name].push(resultMap[name] !== undefined ? resultMap[name] : null);
+    });
+  });
+
+  const colors = ['#00d4aa', '#ff6b9d', '#feca57', '#5f27cd', '#48dbfb', '#ff9f43'];
+  const datasets = distroNames.map((name, idx) => ({
+    label: name,
+    data: distroMap[name],
+    borderColor: colors[idx % colors.length],
+    backgroundColor: colors[idx % colors.length] + '30',
+    borderWidth: 2,
+    tension: 0.2,
+    pointRadius: 4,
+    pointHoverRadius: 6,
+    spanGaps: true,
+  }));
+
+  if (perfBenchChartInstance) {
+    perfBenchChartInstance.destroy();
+  }
+
+  const ctx = perfBenchChart.getContext('2d');
+  perfBenchChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          ticks: { color: 'rgba(255,255,255,0.5)', maxRotation: 45 },
+          grid: { color: 'rgba(255,255,255,0.06)' },
+        },
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: t('performance.chartBootTime'), color: 'rgba(255,255,255,0.5)' },
+          ticks: { color: 'rgba(255,255,255,0.5)', callback: v => v + 's' },
+          grid: { color: 'rgba(255,255,255,0.06)' },
+        },
+      },
+      plugins: {
+        legend: { display: true, position: 'top', labels: { color: 'rgba(255,255,255,0.7)' } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + (ctx.parsed.y !== null ? ctx.parsed.y.toFixed(3) + 's' : '--') } },
+      },
+    },
+  });
+}
+
+// ── Profiler state management ────────────────────────────────────────────────
+
+function showPerfProfilerState(which) {
+  perfProfContent.classList.add('hidden');
+  perfProfLoading.classList.add('hidden');
+  perfProfEmpty.classList.add('hidden');
+  perfProfError.classList.add('hidden');
+  if (which === 'content') perfProfContent.classList.remove('hidden');
+  else if (which === 'loading') perfProfLoading.classList.remove('hidden');
+  else if (which === 'empty') perfProfEmpty.classList.remove('hidden');
+  else if (which === 'error') perfProfError.classList.remove('hidden');
+}
+
+// ── Run profiler ─────────────────────────────────────────────────────────────
+
+btnRunProfiler.addEventListener('click', async () => {
+  const distro = perfDistroSelect.value;
+  if (!distro) {
+    showPerfProfilerState('empty');
+    return;
+  }
+
+  showPerfProfilerState('loading');
+
+  try {
+    const result = await window.wslCleaner.profileShellStartup({ distro });
+
+    if (!result.ok) {
+      perfProfErrorMsg.textContent = result.error || t('performance.profilerError');
+      showPerfProfilerState('error');
+      return;
+    }
+
+    populateProfilerResults(result.data);
+    showPerfProfilerState('content');
+  } catch (err) {
+    perfProfErrorMsg.textContent = (err.message || String(err));
+    showPerfProfilerState('error');
+  }
+});
+
+function populateProfilerResults(data) {
+  // Shell info banner
+  perfProfShellName.textContent = data.shell + (data.shellVersion !== 'unknown' ? ' \u2014 ' + data.shellVersion : '');
+  perfProfShellInfo.classList.remove('hidden');
+
+  // Timing summary
+  perfProfTotal.textContent = data.totalTimeSeconds.toFixed(3) + 's';
+  perfProfBaseline.textContent = data.baselineTimeSeconds.toFixed(3) + 's';
+  perfProfOverhead.textContent = data.rcOverheadSeconds.toFixed(3) + 's';
+  perfProfTiming.classList.remove('hidden');
+
+  // Slow items
+  perfProfItemsList.innerHTML = '';
+  if (data.slowItems.length === 0) {
+    perfProfItemsList.innerHTML = '<div class="perf-prof-no-items">' + escapeHtml(t('performance.noSlowItems')) + '</div>';
+  } else {
+    data.slowItems.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'perf-prof-item-card';
+      card.innerHTML =
+        '<div class="perf-prof-item-header">' +
+          '<span class="perf-prof-item-name">' + escapeHtml(item.name) + '</span>' +
+          '<span class="perf-prof-item-file">' + escapeHtml(item.file) + '</span>' +
+        '</div>' +
+        (item.suggestion ? '<div class="perf-prof-item-suggestion">' + escapeHtml(item.suggestion) + '</div>' : '');
+      perfProfItemsList.appendChild(card);
+    });
+  }
+  perfProfItems.classList.remove('hidden');
+
+  // Files analyzed
+  perfProfFilesList.innerHTML = '';
+  if (data.filesAnalyzed.length === 0) {
+    perfProfFilesList.innerHTML = '<div class="perf-prof-no-items">' + escapeHtml(t('performance.noFiles')) + '</div>';
+  } else {
+    // Sort by source time descending
+    const files = [...data.filesAnalyzed].sort((a, b) => b.sourceTimeMs - a.sourceTimeMs);
+    files.forEach(file => {
+      const row = document.createElement('div');
+      row.className = 'perf-prof-file-row';
+      row.innerHTML =
+        '<span class="perf-prof-file-path">' + escapeHtml(file.path) + '</span>' +
+        '<span class="perf-prof-file-meta">' +
+          '<span class="perf-prof-file-lines">' + file.lineCount + ' ' + t('performance.lines') + '</span>' +
+          '<span class="perf-prof-file-time">' + file.sourceTimeSeconds.toFixed(3) + 's</span>' +
+        '</span>';
+      perfProfFilesList.appendChild(row);
+    });
+  }
+  perfProfFiles.classList.remove('hidden');
+}

@@ -326,75 +326,111 @@ img {
 }
 
 /* ── Feature Tabs ───────────────────────────────────────────────────────── */
-.tab-bar {
-  display: flex;
-  gap: 0;
-  margin-bottom: 56px;
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.tab-bar::-webkit-scrollbar {
-  display: none;
+/* ── Feature Card Grid ──────────────────────────────────────────────────── */
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 48px;
 }
 
-.tab-btn {
-  flex: 1 0 0;
+.feature-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all 0.3s var(--ease);
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent-gradient);
+  opacity: 0;
+  transition: opacity 0.3s var(--ease);
+  z-index: 0;
+}
+
+.feature-card:hover {
+  border-color: var(--border-light);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.feature-card:hover::before {
+  opacity: 0.04;
+}
+
+.feature-card.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: 0 0 20px rgba(0, 212, 170, 0.12), 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.feature-card.active::before {
+  opacity: 0.06;
+}
+
+.feature-card-icon {
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 18px 20px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 14px;
-  font-weight: 600;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  transition: color 0.3s var(--ease);
-  white-space: nowrap;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  transition: all 0.3s var(--ease);
   position: relative;
+  z-index: 1;
 }
 
-.tab-btn::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 16px;
-  right: 16px;
-  height: 2px;
-  background: var(--accent);
-  border-radius: 1px 1px 0 0;
-  opacity: 0;
-  transform: scaleX(0);
+.feature-card-icon svg {
+  width: 24px;
+  height: 24px;
+  opacity: 0.5;
   transition: all 0.3s var(--ease);
 }
 
-.tab-btn:hover {
+.feature-card:hover .feature-card-icon svg {
+  opacity: 0.8;
+}
+
+.feature-card.active .feature-card-icon {
+  background: rgba(0, 212, 170, 0.12);
+}
+
+.feature-card.active .feature-card-icon svg {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.feature-card-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color 0.3s var(--ease);
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.feature-card:hover .feature-card-label {
   color: var(--text-secondary);
 }
 
-.tab-btn.active {
+.feature-card.active .feature-card-label {
   color: var(--text-primary);
-}
-
-.tab-btn.active::after {
-  opacity: 1;
-  transform: scaleX(1);
-}
-
-.tab-btn svg {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  opacity: 0.6;
-}
-
-.tab-btn.active svg {
-  opacity: 1;
-  color: var(--accent);
 }
 
 .tab-panels {
@@ -664,6 +700,11 @@ img {
   .screenshot-frame {
     order: 1;
   }
+
+  .feature-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
 }
 
 @media (max-width: 767px) {
@@ -725,14 +766,29 @@ img {
     margin-bottom: 40px;
   }
 
-  .tab-bar {
+  .feature-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
     margin-bottom: 32px;
   }
 
-  .tab-btn {
-    flex: 0 0 auto;
-    padding: 12px 14px;
-    font-size: 12px;
+  .feature-card {
+    padding: 14px 8px;
+    gap: 8px;
+  }
+
+  .feature-card-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .feature-card-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .feature-card-label {
+    font-size: 11px;
   }
 
   .feature-info h3 {

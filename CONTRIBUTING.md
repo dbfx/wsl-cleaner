@@ -20,6 +20,7 @@ wsl-cleaner/
 │   ├── wsl-ops.js       # WSL commands, VHDX discovery, stale scanning, health info, distro management, config editor
 │   ├── utils.js         # Pure helpers — parseWslOutput, friendlyError, etc.
 │   ├── stats-db.js      # Cleanup history persistence (JSON)
+│   ├── perf-db.js       # Performance benchmark history persistence (JSON)
 │   └── preferences.js   # Task toggle & locale preference persistence
 ├── renderer/
 │   ├── index.html       # App shell with data-i18n attributes
@@ -39,9 +40,9 @@ wsl-cleaner/
 | Layer | File(s) | Responsibility |
 |-------|---------|----------------|
 | Main process | `main.js` | Window lifecycle, IPC handlers, auto-updater events |
-| Libraries | `lib/wsl-ops.js` | WSL command execution, VHDX discovery & optimization, stale scanning, health info, distro export/import/clone/restart/comparison, config editor (read/write .wslconfig and wsl.conf) |
+| Libraries | `lib/wsl-ops.js` | WSL command execution, VHDX discovery & optimization, stale scanning, health info, distro export/import/clone/restart/comparison/migration, config editor (read/write .wslconfig and wsl.conf) |
 | Libraries | `lib/utils.js` | Pure utility functions — output parsing, error mapping |
-| Libraries | `lib/stats-db.js`, `lib/preferences.js` | JSON-backed persistence for history and preferences |
+| Libraries | `lib/stats-db.js`, `lib/perf-db.js`, `lib/preferences.js` | JSON-backed persistence for history, benchmarks, and preferences |
 | Preload | `preload.js` | `contextBridge` that exposes `window.wslCleaner` to the renderer |
 | Renderer | `renderer/app.js` | All UI logic — navigation, task cards, cleanup execution, health dashboard, config editor, charts |
 | Renderer | `renderer/tasks.js` | `TASKS` array defining all 40+ cleanup tasks |
@@ -139,7 +140,7 @@ npm test          # Run all tests once
 npm run test:watch  # Watch mode
 ```
 
-Tests cover `lib/utils.js`, `lib/stats-db.js`, `lib/preferences.js`, `lib/wsl-ops.js` (distro management exports), `renderer/utils.js`, `renderer/i18n.js`, `renderer/tasks.js`, and `cli.js`.
+Tests cover `lib/utils.js`, `lib/stats-db.js`, `lib/preferences.js`, `lib/wsl-ops.js` (distro management exports and migration), `renderer/utils.js`, `renderer/i18n.js`, `renderer/tasks.js`, and `cli.js`.
 
 ## Adding a New Cleanup Task
 

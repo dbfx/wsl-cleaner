@@ -172,6 +172,12 @@
             </svg>
             <span data-i18n="nav.distros">Distros</span>
           </a>
+          <a class="nav-item" data-page="performance">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="14" r="9"/><path d="M12 5v4"/><path d="M16.24 8.76l-2.12 2.12"/><circle cx="12" cy="14" r="1.5"/>
+            </svg>
+            <span data-i18n="nav.performance">Performance</span>
+          </a>
           <div class="nav-section-label" data-i18n="nav.section.wslSettings">WSL Settings</div>
           <a class="nav-item" data-page="config">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -842,6 +848,157 @@
                 <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
               </svg>
               <p id="health-error-msg" data-i18n="health.error">Could not retrieve health data. Make sure the distro is running.</p>
+            </div>
+          </div>
+
+          <!-- ════ Performance Page ════ -->
+          <div id="page-performance" class="page hidden">
+            <!-- Toolbar -->
+            <div class="health-toolbar">
+              <div class="health-toolbar-left">
+                <label class="health-label" data-i18n="performance.distro">Distro</label>
+                <select id="perf-distro" class="health-select"></select>
+              </div>
+              <div class="health-toolbar-right">
+                <div class="perf-tabs">
+                  <button id="perf-tab-benchmark" class="perf-tab active" data-i18n="performance.benchmarkTab">Boot Time</button>
+                  <button id="perf-tab-profiler" class="perf-tab" data-i18n="performance.profilerTab">Shell Startup</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Benchmark Panel ── -->
+            <div id="perf-panel-benchmark" class="perf-panel">
+              <!-- Action bar (always visible) -->
+              <div class="perf-action-bar">
+                <button id="btn-run-benchmark" class="btn-outline">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5,3 19,12 5,21"/>
+                  </svg>
+                  <span data-i18n="performance.analyzeBenchmark">Analyze Startup Time</span>
+                </button>
+                <div class="perf-action-spacer"></div>
+                <label class="perf-checkbox-label">
+                  <input type="checkbox" id="perf-bench-all-distros" />
+                  <span data-i18n="performance.benchmarkAllDistros">Benchmark all distros</span>
+                </label>
+              </div>
+
+              <div id="perf-bench-content" class="hidden">
+                <!-- Results card -->
+                <div id="perf-bench-results" class="health-detail-card hidden">
+                  <div class="health-detail-header" data-i18n="performance.benchmarkResults">Startup Time Results</div>
+                  <div class="health-detail-body">
+                    <div id="perf-bench-list"></div>
+                  </div>
+                </div>
+
+                <!-- History chart -->
+                <div id="perf-bench-history" class="health-detail-card hidden">
+                  <div class="health-detail-header" data-i18n="performance.benchmarkHistory">Benchmark History</div>
+                  <div class="health-detail-body">
+                    <canvas id="perf-bench-chart" height="250"></canvas>
+                  </div>
+                </div>
+
+                <!-- Suggestions card -->
+                <div id="perf-bench-suggest" class="health-detail-card hidden">
+                  <div class="health-detail-header" data-i18n="performance.suggestions">Optimization Suggestions</div>
+                  <div class="health-detail-body">
+                    <div id="perf-bench-suggest-list"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="perf-bench-loading" class="health-loading hidden">
+                <div class="spinner"></div>
+                <p data-i18n="performance.benchmarkRunning">Running startup benchmark&hellip;</p>
+              </div>
+
+              <div id="perf-bench-empty" class="health-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.4">
+                  <circle cx="12" cy="14" r="9"/><path d="M12 5v4"/><path d="M16.24 8.76l-2.12 2.12"/><circle cx="12" cy="14" r="1.5"/>
+                </svg>
+                <p data-i18n="performance.benchmarkEmpty">Click &ldquo;Analyze Startup Time&rdquo; to benchmark how fast your WSL distros boot.</p>
+              </div>
+
+              <div id="perf-bench-error" class="health-error hidden">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                <p id="perf-bench-error-msg" data-i18n="performance.benchmarkError">Could not run benchmark.</p>
+              </div>
+            </div>
+
+            <!-- ── Profiler Panel ── -->
+            <div id="perf-panel-profiler" class="perf-panel hidden">
+              <!-- Action bar (always visible) -->
+              <div class="perf-action-bar">
+                <button id="btn-run-profiler" class="btn-outline">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5,3 19,12 5,21"/>
+                  </svg>
+                  <span data-i18n="performance.analyzeShell">Analyze Shell Startup</span>
+                </button>
+              </div>
+
+              <div id="perf-prof-content" class="hidden">
+                <!-- Shell info banner -->
+                <div id="perf-prof-shell-info" class="health-info-banner hidden">
+                  <span id="perf-prof-shell-name">--</span>
+                </div>
+
+                <!-- Timing summary -->
+                <div id="perf-prof-timing" class="perf-timing-summary hidden">
+                  <div class="perf-timing-card">
+                    <div class="perf-timing-label" data-i18n="performance.totalTime">Total</div>
+                    <div class="perf-timing-value" id="perf-prof-total">--</div>
+                  </div>
+                  <div class="perf-timing-card">
+                    <div class="perf-timing-label" data-i18n="performance.baselineTime">Baseline</div>
+                    <div class="perf-timing-value" id="perf-prof-baseline">--</div>
+                  </div>
+                  <div class="perf-timing-card perf-timing-highlight">
+                    <div class="perf-timing-label" data-i18n="performance.rcOverhead">RC Overhead</div>
+                    <div class="perf-timing-value" id="perf-prof-overhead">--</div>
+                  </div>
+                </div>
+
+                <!-- Slow items card -->
+                <div id="perf-prof-items" class="health-detail-card hidden">
+                  <div class="health-detail-header" data-i18n="performance.slowItems">Slow Items Detected</div>
+                  <div class="health-detail-body">
+                    <div id="perf-prof-items-list"></div>
+                  </div>
+                </div>
+
+                <!-- Files analyzed card -->
+                <div id="perf-prof-files" class="health-detail-card hidden">
+                  <div class="health-detail-header" data-i18n="performance.filesAnalyzed">Configuration Files</div>
+                  <div class="health-detail-body">
+                    <div id="perf-prof-files-list"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="perf-prof-loading" class="health-loading hidden">
+                <div class="spinner"></div>
+                <p data-i18n="performance.profilerRunning">Profiling shell startup&hellip;</p>
+              </div>
+
+              <div id="perf-prof-empty" class="health-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.4">
+                  <path d="M4 17l6-6-6-6"/><path d="M12 19h8"/>
+                </svg>
+                <p data-i18n="performance.profilerEmpty">Click &ldquo;Analyze Shell Startup&rdquo; to profile your shell configuration and find bottlenecks.</p>
+              </div>
+
+              <div id="perf-prof-error" class="health-error hidden">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                <p id="perf-prof-error-msg" data-i18n="performance.profilerError">Could not profile shell startup.</p>
+              </div>
             </div>
           </div>
 
@@ -1623,6 +1780,272 @@
           </svg>
           <span data-i18n="distros.cloneBtn">Clone</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Migration Wizard Modal ─────────────────────────────────────────── -->
+  <div id="migrate-modal" class="modal-overlay hidden">
+    <div class="modal-card migrate-modal-card">
+      <div class="modal-header">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          <line x1="12" y1="11" x2="12" y2="17"/><polyline points="9,14 12,17 15,14"/>
+        </svg>
+        <h3 data-i18n="migrate.title">Migrate Distro</h3>
+        <button id="migrate-modal-close" class="modal-close-btn" type="button" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Stepper bar -->
+      <div class="migrate-stepper">
+        <div class="migrate-stepper-step active" data-wizard-step="1">
+          <div class="migrate-stepper-number">1</div>
+          <span data-i18n="migrate.stepper.destination">Destination</span>
+        </div>
+        <div class="migrate-stepper-line"></div>
+        <div class="migrate-stepper-step" data-wizard-step="2">
+          <div class="migrate-stepper-number">2</div>
+          <span data-i18n="migrate.stepper.confirm">Confirm</span>
+        </div>
+        <div class="migrate-stepper-line"></div>
+        <div class="migrate-stepper-step" data-wizard-step="3">
+          <div class="migrate-stepper-number">3</div>
+          <span data-i18n="migrate.stepper.migrate">Migrate</span>
+        </div>
+        <div class="migrate-stepper-line"></div>
+        <div class="migrate-stepper-step" data-wizard-step="4">
+          <div class="migrate-stepper-number">4</div>
+          <span data-i18n="migrate.stepper.done">Done</span>
+        </div>
+      </div>
+
+      <!-- Step 1: Destination -->
+      <div class="migrate-panel" id="migrate-step-1">
+        <!-- Distro info banner -->
+        <div class="migrate-distro-info">
+          <div class="migrate-distro-info-row">
+            <span data-i18n="migrate.info.distro">Distribution:</span>
+            <span id="migrate-info-distro" class="mono">--</span>
+          </div>
+          <div class="migrate-distro-info-row">
+            <span data-i18n="migrate.info.currentPath">Current location:</span>
+            <span id="migrate-info-path" class="mono">--</span>
+          </div>
+          <div class="migrate-distro-info-row">
+            <span data-i18n="migrate.info.vhdxSize">VHDX size:</span>
+            <span id="migrate-info-size" class="mono">--</span>
+          </div>
+        </div>
+
+        <div class="migrate-field">
+          <label data-i18n="migrate.dest.pathLabel">Destination Folder</label>
+          <div class="distros-import-path-row">
+            <input type="text" id="migrate-dest-path" class="distros-input distros-input-wide"
+                   placeholder="D:\WSL\Ubuntu" data-i18n-placeholder="migrate.dest.pathPlaceholder"
+                   autocomplete="off" />
+            <button id="migrate-browse" class="btn-outline btn-sm" data-i18n="distros.browse">Browse</button>
+          </div>
+        </div>
+
+        <div id="migrate-space-info" class="migrate-space-info hidden">
+          <div class="migrate-space-row">
+            <span data-i18n="migrate.dest.required">Space required (estimated):</span>
+            <span id="migrate-space-required" class="mono">--</span>
+          </div>
+          <div class="migrate-space-row">
+            <span data-i18n="migrate.dest.available">Available on target drive:</span>
+            <span id="migrate-space-available" class="mono">--</span>
+          </div>
+        </div>
+        <div id="migrate-space-warning" class="migrate-warning hidden">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span id="migrate-space-warning-text" data-i18n="migrate.dest.insufficientSpace">Not enough space on the target drive.</span>
+        </div>
+
+        <div class="migrate-nav">
+          <div></div>
+          <button class="btn-primary btn-sm" id="migrate-next-1" disabled data-i18n="migrate.next">Next</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Confirm -->
+      <div class="migrate-panel hidden" id="migrate-step-2">
+        <h3 class="migrate-panel-title" data-i18n="migrate.confirm.title">Confirm Migration</h3>
+
+        <div class="migrate-summary">
+          <div class="migrate-summary-row">
+            <span class="migrate-summary-label" data-i18n="migrate.confirm.distro">Distribution:</span>
+            <span class="migrate-summary-value" id="migrate-summary-distro">--</span>
+          </div>
+          <div class="migrate-summary-row">
+            <span class="migrate-summary-label" data-i18n="migrate.confirm.currentLocation">Current location:</span>
+            <span class="migrate-summary-value mono" id="migrate-summary-current">--</span>
+          </div>
+          <div class="migrate-summary-row">
+            <span class="migrate-summary-label" data-i18n="migrate.confirm.newLocation">New location:</span>
+            <span class="migrate-summary-value mono" id="migrate-summary-dest">--</span>
+          </div>
+          <div class="migrate-summary-row">
+            <span class="migrate-summary-label" data-i18n="migrate.confirm.vhdxSize">VHDX size:</span>
+            <span class="migrate-summary-value mono" id="migrate-summary-size">--</span>
+          </div>
+          <div class="migrate-summary-row">
+            <span class="migrate-summary-label" data-i18n="migrate.confirm.defaultUser">Default user:</span>
+            <span class="migrate-summary-value mono" id="migrate-summary-user">--</span>
+          </div>
+        </div>
+
+        <div class="stale-toggle-row" style="margin-top: 16px;">
+          <label class="toggle" onclick="event.stopPropagation()">
+            <input type="checkbox" id="migrate-keep-backup" />
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="stale-toggle-label" data-i18n="migrate.confirm.keepBackup">Keep tar backup after migration</span>
+        </div>
+
+        <div class="migrate-warnings">
+          <div class="migrate-warning-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span data-i18n="migrate.confirm.warning1">The distro will be temporarily unavailable during migration.</span>
+          </div>
+          <div class="migrate-warning-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span data-i18n="migrate.confirm.warning2">If anything goes wrong, the tar backup will be preserved for manual recovery.</span>
+          </div>
+        </div>
+
+        <div class="migrate-nav">
+          <button class="btn-outline btn-sm" id="migrate-back-2" data-i18n="migrate.back">Back</button>
+          <button class="btn-primary btn-sm" id="migrate-start">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>
+            <span data-i18n="migrate.confirm.startBtn">Start Migration</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 3: Progress -->
+      <div class="migrate-panel hidden" id="migrate-step-3">
+        <h3 class="migrate-panel-title" data-i18n="migrate.progress.title">Migration In Progress</h3>
+        <p class="migrate-panel-desc" data-i18n="migrate.progress.desc">Please wait while the distro is being moved. Do not close the application.</p>
+
+        <div class="simple-steps" id="migrate-steps">
+          <div class="progress-header">
+            <div class="orbital-spinner orbital-spinner-sm">
+              <div class="orbit orbit-1"></div>
+              <div class="orbit orbit-2"></div>
+              <div class="orbit orbit-3"></div>
+              <div class="orbit-core"></div>
+            </div>
+            <div class="progress-bar-track">
+              <div id="migrate-progress-fill" class="progress-bar-fill" style="width:0%"></div>
+            </div>
+            <div class="progress-info">
+              <span id="migrate-step-counter"></span>
+              <span id="migrate-elapsed">0:00</span>
+            </div>
+          </div>
+
+          <div class="step-item" data-step="export">
+            <div class="step-icon-slot"></div>
+            <span class="step-label" data-i18n="migrate.progress.export">Exporting distro to archive...</span>
+          </div>
+          <div class="step-item" data-step="terminate">
+            <div class="step-icon-slot"></div>
+            <span class="step-label" data-i18n="migrate.progress.terminate">Terminating distro...</span>
+          </div>
+          <div class="step-item" data-step="unregister">
+            <div class="step-icon-slot"></div>
+            <span class="step-label" data-i18n="migrate.progress.unregister">Unregistering from current location...</span>
+          </div>
+          <div class="step-item" data-step="import">
+            <div class="step-icon-slot"></div>
+            <span class="step-label" data-i18n="migrate.progress.import">Importing at new location...</span>
+          </div>
+          <div class="step-item" data-step="user">
+            <div class="step-icon-slot"></div>
+            <span class="step-label" data-i18n="migrate.progress.user">Restoring default user...</span>
+          </div>
+          <div class="step-item" data-step="verify">
+            <div class="step-icon-slot"></div>
+            <span class="step-label" data-i18n="migrate.progress.verify">Verifying migration...</span>
+          </div>
+          <div class="step-item" data-step="cleanup">
+            <div class="step-icon-slot"></div>
+            <span class="step-label" data-i18n="migrate.progress.cleanup">Cleaning up temporary files...</span>
+          </div>
+        </div>
+
+        <div class="cleaner-log-section" id="migrate-log-section">
+          <div class="cleaner-log-header">
+            <span data-i18n="simple.logTitle">Live Output</span>
+            <button id="migrate-log-toggle" class="btn-icon-sm" type="button" title="Toggle log">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,9 12,15 18,9"/></svg>
+            </button>
+          </div>
+          <pre id="migrate-log" class="cleaner-log"></pre>
+        </div>
+      </div>
+
+      <!-- Step 4: Completion -->
+      <div class="migrate-panel hidden" id="migrate-step-4">
+        <div id="migrate-result-success" class="hidden">
+          <div class="result-success-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <h2 class="result-title" data-i18n="migrate.result.successTitle">Migration Complete</h2>
+          <p class="migrate-result-desc" data-i18n="migrate.result.successDesc">Your distribution has been successfully moved to the new location.</p>
+          <div class="migrate-summary" id="migrate-result-summary"></div>
+          <div id="migrate-result-backup" class="migrate-info hidden">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <span id="migrate-result-backup-path"></span>
+          </div>
+        </div>
+
+        <div id="migrate-result-failure" class="hidden">
+          <div class="result-success-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+          </div>
+          <h2 class="result-title" style="color: var(--danger);" data-i18n="migrate.result.failTitle">Migration Failed</h2>
+          <p class="migrate-result-desc" id="migrate-fail-message"></p>
+          <div class="migrate-info" id="migrate-fail-tar-info" style="display:none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <span id="migrate-fail-tar-path"></span>
+          </div>
+        </div>
+
+        <div class="migrate-nav" style="margin-top: 24px;">
+          <div></div>
+          <button class="btn-primary btn-sm" id="migrate-reset">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            <span data-i18n="migrate.result.startOver">Start Over</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

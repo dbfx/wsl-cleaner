@@ -6,6 +6,7 @@ const log = require('electron-log');
 const { isValidExternalUrl, friendlyError } = require('./lib/utils');
 const wslOps = require('./lib/wsl-ops');
 const statsDb = require('./lib/stats-db');
+const perfDb = require('./lib/perf-db');
 const preferences = require('./lib/preferences');
 const trayManager = require('./lib/tray-manager');
 
@@ -126,6 +127,7 @@ ipcMain.handle('install-update', () => {
 app.whenReady().then(() => {
   const userData = app.getPath('userData');
   statsDb.init(userData);
+  perfDb.init(userData);
   preferences.init(userData);
   createWindow();
 
@@ -297,6 +299,24 @@ ipcMain.handle('get-rc-local', async (_event, distro) => {
   return wslOps.getRcLocal(distro);
 });
 
+// ── Performance Benchmarking ─────────────────────────────────────────────────
+
+ipcMain.handle('benchmark-startup-time', async (_event, opts) => {
+  return wslOps.benchmarkStartupTime(opts);
+});
+
+ipcMain.handle('profile-shell-startup', async (_event, opts) => {
+  return wslOps.profileShellStartup(opts);
+});
+
+ipcMain.handle('get-benchmark-history', () => {
+  return perfDb.loadHistory();
+});
+
+ipcMain.handle('save-benchmark-record', (_event, record) => {
+  return perfDb.saveRecord(record);
+});
+
 // ── WSL Config Editor ────────────────────────────────────────────────────────
 
 ipcMain.handle('get-system-resources', () => wslOps.getSystemResources());
@@ -340,6 +360,27 @@ ipcMain.handle('restart-distro', async (event, { distro, taskId }) => {
 
 ipcMain.handle('get-distro-comparison', async (_event, distros) => {
   return wslOps.getDistroComparison(distros);
+});
+
+// ── Distro migration ──────────────────────────────────────────────────────────
+
+ipcMain.handle('get-default-user', async (_event, distro) => {
+  return wslOps.getDefaultUser(distro);
+});
+
+ipcMain.handle('get-drive-space', async (_event, drivePath) => {
+  return wslOps.getDriveSpace(drivePath);
+});
+
+ipcMain.handle('unregister-distro', async (event, { distro, taskId }) => {
+  const onOutput = (data) => mainWindow?.webContents.send('task-output', data);
+  return wslOps.unregisterDistro({ distro, taskId, onOutput });
+});
+
+ipcMain.handle('migrate-distro', async (event, { distro, destinationPath, defaultUser, keepBackup, taskId }) => {
+  const onOutput = (data) => mainWindow?.webContents.send('task-output', data);
+  const onStep = (data) => mainWindow?.webContents.send('migrate-step', data);
+  return wslOps.migrateDistro({ distro, destinationPath, defaultUser, keepBackup, taskId, onOutput, onStep });
 });
 
 ipcMain.handle('show-save-dialog', async (_event, opts) => {

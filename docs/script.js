@@ -1,15 +1,15 @@
 // ── Tab Switching ─────────────────────────────────────────────────────────
-const tabBtns = document.querySelectorAll('.tab-btn');
+const featureCards = document.querySelectorAll('.feature-card');
 const tabPanels = document.querySelectorAll('.tab-panel');
 
-tabBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    const target = btn.dataset.tab;
+featureCards.forEach(card => {
+  card.addEventListener('click', () => {
+    const target = card.dataset.tab;
 
-    tabBtns.forEach(b => b.classList.remove('active'));
+    featureCards.forEach(c => c.classList.remove('active'));
     tabPanels.forEach(p => p.classList.remove('active'));
 
-    btn.classList.add('active');
+    card.classList.add('active');
     document.getElementById('panel-' + target).classList.add('active');
   });
 });

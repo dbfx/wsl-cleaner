@@ -5,8 +5,7 @@
 Designed for developers who use Windows 10/11 with WSL2, and have large WSL2 volumes that need cleaning and compacting. Can often save 10-100+ GB of space on your SSD.
 
 [![Download](https://img.shields.io/badge/Download-Latest%20Release-brightgreen?style=for-the-badge)](https://github.com/dbfx/wsl-cleaner/releases)
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Website](https://img.shields.io/badge/Website-wsl--cleaner.blakey.co-00d4aa?style=for-the-badge)](https://wsl-cleaner.blakey.co)
 
 ![WSL Cleaner](assets/combo.png)
 
@@ -147,6 +146,7 @@ Centralized management panel for all your WSL distributions:
 - **Import** a distro from a `.tar` archive, choosing name and install location
 - **Clone** a distro in one click (export + import under a new name)
 - **One-click restart** -- terminates and re-launches a distro instantly
+- **Migration wizard** -- guided flow to move a distro to another drive (export → unregister → import), with disk space validation, default user preservation, and backup safety net
 - **Activity log** showing real-time command output from operations
 - Auto-refreshes every 15 seconds while the page is active
 
@@ -160,6 +160,17 @@ View and manage auto-starting services across your WSL distros. Detects whether 
 - **Expandable detail panels** showing service description, type, PID, unit file path, dependencies, and start timestamp
 - **Init system detection** -- checks `/proc/1/comm` and shows a helpful hint for non-systemd distros with instructions to enable it via `/etc/wsl.conf`
 - **rc.local display** -- shows the contents of `/etc/rc.local` if present
+
+### Performance
+
+Benchmark WSL startup time and profile shell configuration to identify performance bottlenecks.
+
+- **Boot time benchmarker** -- cold-boots each distro and measures startup time with `process.hrtime` precision
+- **Historical tracking** -- saves benchmark results and displays a Chart.js trend line across runs
+- **Shell startup profiler** -- detects your shell (bash/zsh/fish), measures total vs baseline (no-rc) startup time, and reports the RC file overhead
+- **Per-file analysis** -- individually times sourcing of each config file (~/.bashrc, ~/.zshrc, etc.) with line counts
+- **Slow item detection** -- scans RC files for known bottlenecks: nvm, conda, oh-my-zsh, pyenv, rbenv, sdkman, homebrew, compinit, antigen
+- **Actionable suggestions** -- each detected item includes a specific fix recommendation
 
 ### Config Editor
 
@@ -311,10 +322,11 @@ wsl-cleaner/
   preload.js           # Secure bridge (contextBridge -> window.wslCleaner)
   cli.js               # Standalone CLI (node cli.js --help)
   lib/
-    wsl-ops.js         # WSL commands, VHDX discovery, stale scanning, health info, distro management
+    wsl-ops.js         # WSL commands, VHDX discovery, stale scanning, health info, distro management & migration
     tray-manager.js    # System tray icon, context menu, background health polling
     utils.js           # Pure helpers — parseWslOutput, friendlyError, etc.
     stats-db.js        # Cleanup history persistence (JSON)
+    perf-db.js         # Performance benchmark history persistence (JSON)
     preferences.js     # Task toggle & locale preference persistence
   renderer/
     index.html         # App shell with data-i18n attributes
