@@ -64,20 +64,21 @@ function buildErrorReverseMap() {
 /**
  * Apply translations to all DOM elements with data-i18n* attributes.
  */
-function applyI18n() {
-  document.querySelectorAll('[data-i18n]').forEach(el => {
+function applyI18n(root) {
+  const scope = root || document;
+  scope.querySelectorAll('[data-i18n]').forEach(el => {
     el.textContent = t(el.dataset.i18n);
   });
-  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+  scope.querySelectorAll('[data-i18n-html]').forEach(el => {
     el.innerHTML = t(el.dataset.i18nHtml);
   });
-  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+  scope.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     el.placeholder = t(el.dataset.i18nPlaceholder);
   });
-  document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+  scope.querySelectorAll('[data-i18n-aria]').forEach(el => {
     el.setAttribute('aria-label', t(el.dataset.i18nAria));
   });
-  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+  scope.querySelectorAll('[data-i18n-title]').forEach(el => {
     el.title = t(el.dataset.i18nTitle);
   });
 }

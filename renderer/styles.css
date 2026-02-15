@@ -411,6 +411,37 @@ a:hover {
 }
 
 /* ── Phase 2: Detecting WSL ──────────────────────────────────────────────── */
+/* Inline detecting indicator inside splash */
+.splash-detecting {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: detectingFadeIn 0.5s ease-out forwards;
+}
+.splash-detecting.hidden {
+  display: none !important;
+}
+.splash-detect-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.splash-detect-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+}
+
 .detecting {
   display: flex;
   flex-direction: column;
@@ -1213,6 +1244,106 @@ a:hover {
   background-clip: text;
 }
 
+/* ── Cleaner completion view ──────────────────────────────────────────────── */
+.simple-result-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: resultReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.result-success-icon {
+  margin-bottom: 12px;
+  color: var(--success);
+}
+
+.result-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--success);
+  margin-bottom: 24px;
+}
+
+.simple-result-view .size-comparison {
+  margin-bottom: 24px;
+}
+
+.result-saved {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 28px;
+}
+
+.result-saved-value {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  font-weight: 700;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.1;
+}
+
+.result-saved-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.result-compact-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.result-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 28px;
+}
+
+.result-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.result-stat-value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.result-stat-success {
+  color: var(--success);
+}
+
+.result-stat-fail {
+  color: var(--danger);
+}
+
+.result-stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* ── Utility ──────────────────────────────────────────────────────────────── */
 .fade-in {
   animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -1503,6 +1634,51 @@ a:hover {
   100% { transform: scale(1); }
 }
 
+/* ── Step error detail (collapsible) ──────────────────────────────────────── */
+.step-item { flex-wrap: wrap; }
+
+.step-error-detail {
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.step-error-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  padding: 2px 0;
+  opacity: 0.85;
+  transition: opacity var(--transition);
+}
+.step-error-toggle:hover { opacity: 1; }
+.step-error-toggle svg { transition: transform 0.2s ease; }
+.step-error-toggle.expanded svg { transform: rotate(180deg); }
+
+.step-error-output {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  max-height: 150px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+.step-error-output.hidden { display: none; }
+
 /* ── Progress header (orbital spinner + bar + info) ──────────────────────── */
 .progress-header {
   display: flex;
@@ -1570,13 +1746,10 @@ a:hover {
   font-family: var(--font-mono);
 }
 
-/* Scan line inside steps area */
+/* Steps area overflow */
 .simple-steps {
   position: relative;
   overflow: hidden;
-}
-.simple-steps > .scan-line {
-  z-index: 1;
 }
 
 /* ── About Page ───────────────────────────────────────────────────────────── */
@@ -2262,6 +2435,77 @@ a:hover {
   padding: 10px 22px;
   font-size: 13px;
   font-weight: 600;
+}
+
+/* ── Clickable fail stat ──────────────────────────────────────────────────── */
+#result-fail-box.has-failures {
+  cursor: pointer;
+  border-color: var(--danger);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+#result-fail-box.has-failures:hover {
+  background: rgba(255, 71, 87, 0.08);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+#result-fail-box.has-failures .result-stat-label::after {
+  content: ' — view log';
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* ── Failed tasks log modal ──────────────────────────────────────────────── */
+.modal-card-wide {
+  max-width: 600px;
+}
+.modal-header-danger {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--danger);
+}
+.fail-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.fail-log-item {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  text-align: left;
+}
+.fail-log-task {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.fail-log-distro {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.fail-log-output {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border-radius: 4px;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 120px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+.fail-log-code {
+  font-size: 11px;
+  color: var(--danger);
+  font-family: var(--font-mono);
 }
 
 /* ── Disk Map Page ────────────────────────────────────────────────────────── */
@@ -3286,4 +3530,71 @@ a:hover {
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* ── Tray & Alerts Page ──────────────────────────────────────────────────── */
+
+.alert-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.alert-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: opacity var(--transition);
+}
+
+.alert-card.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.alert-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-card-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.alert-card-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.alert-card-threshold {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.alert-card-threshold input {
+  width: 70px;
+}
+
+.tray-preview-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.section-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 16px;
 }

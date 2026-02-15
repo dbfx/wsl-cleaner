@@ -79,4 +79,18 @@ contextBridge.exposeInMainWorld('wslCleaner', {
   getLanguages: () => ipcRenderer.invoke('get-languages'),
   getLocalePreference: () => ipcRenderer.invoke('get-locale-preference'),
   saveLocalePreference: (code) => ipcRenderer.invoke('save-locale-preference', code),
+
+  // System tray & alerts
+  saveTrayPreferences: (prefs) => ipcRenderer.invoke('save-tray-preferences', prefs),
+  getTrayLatestStats: () => ipcRenderer.invoke('tray-get-latest-stats'),
+  onTrayStatsUpdated: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('tray-stats-updated', handler);
+    return () => ipcRenderer.removeListener('tray-stats-updated', handler);
+  },
+  onNotificationNavigate: (callback) => {
+    const handler = (_event, page) => callback(page);
+    ipcRenderer.on('notification-navigate', handler);
+    return () => ipcRenderer.removeListener('notification-navigate', handler);
+  },
 });

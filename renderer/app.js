@@ -22,6 +22,22 @@ let state = {
   diskmapTree: null,       // parsed tree structure from disk scan
   diskmapPath: '/',        // current drill-down path
   diskmapScanning: false,  // whether a scan is in progress
+
+  // Tray & alerts
+  trayEnabled: false,
+  trayCloseToTray: true,
+  trayInterval: 60,
+  trayDistro: '',
+  alertsEnabled: false,
+  alertCooldown: 30,
+  alerts: {
+    vhdxSize:    { enabled: false, threshold: 60 },
+    memoryHigh:  { enabled: false, threshold: 80 },
+    dockerSpace: { enabled: false, threshold: 10 },
+    zombies:     { enabled: false, threshold: 1 },
+    systemdFail: { enabled: false, threshold: 1 },
+    dnsBroken:   { enabled: false, threshold: 0 },
+  },
 };
 
 // Migrate old localStorage page values to new names
@@ -59,6 +75,7 @@ const mainScreen = $('#main-screen');
 const errorMessage = $('#error-message');
 const splashEl = $('#splash');
 const detectingEl = $('#detecting');
+const splashDetecting = $('#splash-detecting');
 const statusText = $('#status-text');
 const distroPickerBtn = $('#distro-picker-btn');
 const distroPickerLabel = $('#distro-picker-label');
@@ -375,6 +392,9 @@ function switchPage(pageName) {
   } else {
     stopDistrosAutoRefresh();
   }
+
+  // Render tray page
+  if (pageName === 'tray') renderTrayPage();
 }
 
 // Wire sidebar clicks
@@ -969,12 +989,16 @@ compactEnabledCb.addEventListener('change', () => {
 
 // ── Simple mode helpers ──────────────────────────────────────────────────────
 
-function setSimpleStep(stepName, status) {
+function setSimpleStep(stepName, status, errorOutput) {
   const item = simpleSteps.querySelector(`.step-item[data-step="${stepName}"]`);
   if (!item) return;
 
   item.classList.remove('active', 'done', 'failed');
   const iconSlot = item.querySelector('.step-icon-slot');
+
+  // Remove any existing error detail from a previous run
+  const existingDetail = item.querySelector('.step-error-detail');
+  if (existingDetail) existingDetail.remove();
 
   if (status === 'active') {
     item.classList.add('active');
@@ -985,6 +1009,26 @@ function setSimpleStep(stepName, status) {
   } else if (status === 'failed') {
     item.classList.add('failed');
     iconSlot.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+    // Show collapsible error detail if there is output
+    if (errorOutput && errorOutput.trim()) {
+      const detail = document.createElement('div');
+      detail.className = 'step-error-detail';
+      detail.innerHTML =
+        `<button class="step-error-toggle" type="button">` +
+        `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,9 12,15 18,9"/></svg>` +
+        `<span>${t('simple.viewError')}</span></button>` +
+        `<pre class="step-error-output hidden">${escapeHtml(errorOutput.trim())}</pre>`;
+      item.appendChild(detail);
+
+      const toggleBtn = detail.querySelector('.step-error-toggle');
+      const outputPre = detail.querySelector('.step-error-output');
+      toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        outputPre.classList.toggle('hidden');
+        toggleBtn.classList.toggle('expanded');
+      });
+    }
   } else {
     iconSlot.innerHTML = '';
   }
@@ -1055,6 +1099,8 @@ function resetSimpleSteps() {
   simpleSteps.querySelectorAll('.step-item').forEach(item => {
     item.classList.remove('active', 'done', 'failed');
     item.querySelector('.step-icon-slot').innerHTML = '';
+    const errorDetail = item.querySelector('.step-error-detail');
+    if (errorDetail) errorDetail.remove();
   });
   // Reset progress UI
   if (simpleProgressFill) simpleProgressFill.style.width = '0%';
@@ -1115,6 +1161,7 @@ btnSimpleGo.addEventListener('click', async () => {
   const simpleStart = Date.now();
   let simpleTotalRun = 0, simpleTotalOk = 0, simpleTotalFail = 0;
   let simpleStaleFound = 0, simpleStaleDeleted = 0;
+  const failedTasks = [];
 
   // Measure total VHDX size before
   let totalBefore = 0;
@@ -1156,6 +1203,7 @@ btnSimpleGo.addEventListener('click', async () => {
   // Step 2: Run cleanup tasks on each distro (respects task toggles from Settings)
   setSimpleStep('cleanup', 'active');
   let cleanupOk = true;
+  const cleanupErrors = [];
   for (const distro of state.selectedDistros) {
     const distroTools = state.toolsByDistro[distro] || {};
     const availableTasks = TASKS.filter(task => {
@@ -1177,15 +1225,20 @@ btnSimpleGo.addEventListener('click', async () => {
       } else {
         simpleTotalFail++;
         cleanupOk = false;
+        const taskName = t('task.' + task.id + '.name') || task.name || task.id;
+        const detail = (result.output || '').trim();
+        cleanupErrors.push('[' + taskName + '] ' + (detail || 'Exit code ' + result.code));
+        failedTasks.push({ name: taskName, distro, output: detail, code: result.code });
       }
     }
   }
-  setSimpleStep('cleanup', cleanupOk ? 'done' : 'failed');
+  setSimpleStep('cleanup', cleanupOk ? 'done' : 'failed', cleanupErrors.join('\n'));
 
   // Step 3: Filesystem TRIM on each distro
   setSimpleStep('fstrim', 'active');
   const fstrimTask = TASKS.find(t => t.id === 'fstrim');
   let fstrimOk = true;
+  const fstrimErrors = [];
   for (const distro of state.selectedDistros) {
     const fstrimResult = await window.wslCleaner.runCleanup({
       distro,
@@ -1193,38 +1246,54 @@ btnSimpleGo.addEventListener('click', async () => {
       command: fstrimTask.command,
       asRoot: fstrimTask.asRoot,
     });
-    if (!fstrimResult.ok) fstrimOk = false;
+    if (!fstrimResult.ok) {
+      fstrimOk = false;
+      const detail = (fstrimResult.output || '').trim();
+      fstrimErrors.push('[' + distro + '] ' + (detail || 'Exit code ' + fstrimResult.code));
+    }
   }
-  setSimpleStep('fstrim', fstrimOk ? 'done' : 'failed');
+  setSimpleStep('fstrim', fstrimOk ? 'done' : 'failed', fstrimErrors.join('\n'));
 
   // Steps 4-7 only run when compaction is enabled in Settings
   if (doCompact) {
     // Step 4: Shutdown WSL (once for all distros)
     setSimpleStep('shutdown', 'active');
-    await window.wslCleaner.runWslCommand({ command: 'wsl --shutdown', taskId: 'cleaner' });
-    setSimpleStep('shutdown', 'done');
+    const shutdownRes = await window.wslCleaner.runWslCommand({ command: 'wsl --shutdown', taskId: 'cleaner' });
+    setSimpleStep('shutdown', shutdownRes.ok ? 'done' : 'failed',
+      shutdownRes.ok ? '' : (shutdownRes.output || '').trim());
 
     // Step 5: Update WSL
     setSimpleStep('update', 'active');
-    await window.wslCleaner.runWslCommand({ command: 'wsl --update', taskId: 'cleaner' });
-    setSimpleStep('update', 'done');
+    const updateRes = await window.wslCleaner.runWslCommand({ command: 'wsl --update', taskId: 'cleaner' });
+    setSimpleStep('update', updateRes.ok ? 'done' : 'failed',
+      updateRes.ok ? '' : (updateRes.output || '').trim());
 
     // Step 6: Compact all VHDX files
     setSimpleStep('compact', 'active');
     await window.wslCleaner.runWslCommand({ command: 'wsl --shutdown', taskId: 'cleaner' });
     let compactOk = true;
+    const compactErrors = [];
     for (const vf of state.vhdxFiles) {
       const compactRes = await window.wslCleaner.optimizeVhdx({ vhdxPath: vf.path, taskId: 'cleaner' });
-      if (!compactRes.ok) compactOk = false;
+      if (!compactRes.ok) {
+        compactOk = false;
+        compactErrors.push((compactRes.output || '').trim());
+      }
     }
-    setSimpleStep('compact', compactOk ? 'done' : 'failed');
+    setSimpleStep('compact', compactOk ? 'done' : 'failed', compactErrors.join('\n'));
 
     // Step 7: Restart each selected distro
     setSimpleStep('restart', 'active');
+    let restartOk = true;
+    const restartErrors = [];
     for (const distro of state.selectedDistros) {
-      await window.wslCleaner.runWslCommand({ command: `wsl -d ${distro} -- echo "WSL restarted"`, taskId: 'cleaner' });
+      const restartRes = await window.wslCleaner.runWslCommand({ command: `wsl -d ${distro} -- echo "WSL restarted"`, taskId: 'cleaner' });
+      if (!restartRes.ok) {
+        restartOk = false;
+        restartErrors.push('[' + distro + '] ' + (restartRes.output || '').trim());
+      }
     }
-    setSimpleStep('restart', 'done');
+    setSimpleStep('restart', restartOk ? 'done' : 'failed', restartErrors.join('\n'));
   }
 
   // Finalize progress UI
@@ -1240,10 +1309,44 @@ btnSimpleGo.addEventListener('click', async () => {
   }
   const saved = totalBefore - totalAfter;
 
+  const durationMs = Date.now() - simpleStart;
+
   // Show results
   simpleSizeBefore.textContent = formatBytes(totalBefore);
   simpleSizeAfter.textContent = formatBytes(totalAfter);
-  simpleSpaceSaved.textContent = saved > 0 ? formatBytes(saved) : t('result.noChange');
+  const compactHint = $('#result-compact-hint');
+  if (!doCompact) {
+    simpleSpaceSaved.textContent = '—';
+    compactHint.classList.remove('hidden');
+  } else {
+    simpleSpaceSaved.textContent = saved > 0 ? formatBytes(saved) : t('result.noChange');
+    compactHint.classList.add('hidden');
+  }
+
+  // Populate stats
+  const durationSecs = Math.floor(durationMs / 1000);
+  const durationM = Math.floor(durationSecs / 60);
+  const durationS = durationSecs % 60;
+  $('#result-tasks-run').textContent = simpleTotalRun;
+  $('#result-tasks-ok').textContent = simpleTotalOk;
+  $('#result-tasks-fail').textContent = simpleTotalFail;
+
+  // Make fail stat clickable when there are failures
+  const failBox = $('#result-fail-box');
+  if (failedTasks.length > 0) {
+    failBox.classList.add('has-failures');
+    failBox._failedTasks = failedTasks;
+  } else {
+    failBox.classList.remove('has-failures');
+    failBox._failedTasks = null;
+  }
+
+  $('#result-stale-found').textContent = simpleStaleFound;
+  $('#result-stale-deleted').textContent = simpleStaleDeleted;
+  $('#result-duration').textContent = durationM + ':' + String(durationS).padStart(2, '0');
+
+  // Hide steps and show completion view
+  simpleSteps.classList.add('hidden');
   simpleResult.classList.remove('hidden');
 
   // Celebration effects
@@ -1265,22 +1368,65 @@ btnSimpleGo.addEventListener('click', async () => {
     tasksFailed: simpleTotalFail,
     staleDirsFound: simpleStaleFound,
     staleDirsDeleted: simpleStaleDeleted,
-    durationMs: Date.now() - simpleStart,
+    durationMs,
   });
 
   state.isRunning = false;
-  btnSimpleGo.disabled = false;
-  btnSimpleGo.classList.remove('hidden');
-  simpleEstimate.classList.remove('hidden');
   distroPickerBtn.disabled = false;
+});
 
-  // Restore hero and orbital spinner for next run
+// ── "Clean Again" button restores the initial cleaner view ────────────────
+$('#btn-clean-again').addEventListener('click', () => {
+  // Hide completion view
+  simpleResult.classList.add('hidden');
+
+  // Restore initial elements
   const simpleHeroEl = document.querySelector('.simple-hero');
   if (simpleHeroEl) simpleHeroEl.classList.remove('hidden');
+  const disclaimer = document.querySelector('.simple-disclaimer');
+  if (disclaimer) disclaimer.classList.remove('hidden');
+  btnSimpleGo.classList.remove('hidden');
+  btnSimpleGo.disabled = false;
+  simpleEstimate.classList.remove('hidden');
+
+  // Reset step progress for next run
+  resetSimpleSteps();
   if (progressHeader) {
     const spinner = progressHeader.querySelector('.orbital-spinner');
     if (spinner) spinner.classList.remove('hidden');
   }
+});
+
+// ── Failed tasks log modal ───────────────────────────────────────────────────
+const failLogModal = $('#fail-log-modal');
+const failLogList = $('#fail-log-list');
+const failLogClose = $('#fail-log-close');
+
+$('#result-fail-box').addEventListener('click', () => {
+  const tasks = $('#result-fail-box')._failedTasks;
+  if (!tasks || tasks.length === 0) return;
+
+  failLogList.innerHTML = tasks.map(f => {
+    const output = f.output
+      ? `<pre class="fail-log-output">${f.output.replace(/</g, '&lt;')}</pre>`
+      : '';
+    const code = f.code != null ? `<span class="fail-log-code">Exit code ${f.code}</span>` : '';
+    return `<div class="fail-log-item">
+      <div class="fail-log-task">${f.name.replace(/</g, '&lt;')}</div>
+      <div class="fail-log-distro">${f.distro.replace(/</g, '&lt;')} ${code}</div>
+      ${output}
+    </div>`;
+  }).join('');
+
+  failLogModal.classList.remove('hidden');
+});
+
+failLogClose.addEventListener('click', () => {
+  failLogModal.classList.add('hidden');
+});
+
+failLogModal.addEventListener('click', (e) => {
+  if (e.target === failLogModal) failLogModal.classList.add('hidden');
 });
 
 // ── Disk Map page ────────────────────────────────────────────────────────────
@@ -1980,22 +2126,17 @@ async function init() {
   // Start WSL check immediately (runs in parallel with the splash animation)
   const wslCheckPromise = window.wslCleaner.checkWsl();
 
-  // Splash phase: enforce minimum display time so users see the full animation
-  await new Promise(resolve => {
-    setTimeout(() => {
-      splashEl.classList.add('fade-out');
-      setTimeout(() => {
-        splashEl.classList.add('hidden');
-        detectingEl.classList.remove('hidden');
-        resolve();
-      }, 500);
-    }, 1800);
-  });
+  // Show "Detecting WSL 2..." inside splash after the tagline finishes animating
+  await new Promise(resolve => setTimeout(resolve, 1800));
+  splashDetecting.classList.remove('hidden');
 
   // Now await WSL check result (may already be resolved)
   const wslCheck = await wslCheckPromise;
 
   if (!wslCheck.ok) {
+    splashEl.classList.add('fade-out');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    splashEl.classList.add('hidden');
     errorMessage.textContent = tError(wslCheck.error);
     showScreen(errorScreen);
     return;
@@ -2017,6 +2158,40 @@ async function init() {
         state.compactEnabled = !!value;
       } else if (key === '_soundEnabled') {
         state.soundEnabled = !!value;
+      } else if (key === '_trayEnabled') {
+        state.trayEnabled = !!value;
+      } else if (key === '_trayCloseToTray') {
+        state.trayCloseToTray = !!value;
+      } else if (key === '_trayInterval') {
+        state.trayInterval = Math.max(10, Math.min(600, parseInt(value, 10) || 60));
+      } else if (key === '_trayDistro') {
+        state.trayDistro = value || '';
+      } else if (key === '_alertsEnabled') {
+        state.alertsEnabled = !!value;
+      } else if (key === '_alertCooldown') {
+        state.alertCooldown = Math.max(5, Math.min(1440, parseInt(value, 10) || 30));
+      } else if (key === '_alertVhdxSize') {
+        state.alerts.vhdxSize.enabled = !!value;
+      } else if (key === '_alertVhdxSizeThreshold') {
+        state.alerts.vhdxSize.threshold = parseInt(value, 10) || 60;
+      } else if (key === '_alertMemoryHigh') {
+        state.alerts.memoryHigh.enabled = !!value;
+      } else if (key === '_alertMemoryHighThreshold') {
+        state.alerts.memoryHigh.threshold = parseInt(value, 10) || 80;
+      } else if (key === '_alertDockerSpace') {
+        state.alerts.dockerSpace.enabled = !!value;
+      } else if (key === '_alertDockerSpaceThreshold') {
+        state.alerts.dockerSpace.threshold = parseInt(value, 10) || 10;
+      } else if (key === '_alertZombies') {
+        state.alerts.zombies.enabled = !!value;
+      } else if (key === '_alertZombiesThreshold') {
+        state.alerts.zombies.threshold = parseInt(value, 10) || 1;
+      } else if (key === '_alertSystemdFail') {
+        state.alerts.systemdFail.enabled = !!value;
+      } else if (key === '_alertSystemdFailThreshold') {
+        state.alerts.systemdFail.threshold = parseInt(value, 10) || 1;
+      } else if (key === '_alertDnsBroken') {
+        state.alerts.dnsBroken.enabled = !!value;
       } else if (key in state.taskEnabled) {
         state.taskEnabled[key] = value;
       }
@@ -2042,10 +2217,245 @@ async function init() {
   // Restore last page from localStorage
   switchPage(state.currentPage);
 
+  // Fade out splash only when everything is ready
+  splashEl.classList.add('fade-out');
+  await new Promise(resolve => setTimeout(resolve, 500));
+  splashEl.classList.add('hidden');
+
   showScreen(mainScreen);
 }
 
+// Listen for notification clicks to navigate to relevant page
+window.wslCleaner.onNotificationNavigate((page) => {
+  switchPage(page);
+});
+
+// Listen for tray stats updates to refresh preview
+window.wslCleaner.onTrayStatsUpdated((snapshot) => {
+  if (state.currentPage === 'tray') updateTrayPreview(snapshot);
+});
+
 init();
+
+// ── Tray & Alerts Page ────────────────────────────────────────────────────
+
+const ALERT_TYPES = [
+  { id: 'vhdxSize',    defaultThreshold: 60,  min: 1,   max: 500 },
+  { id: 'memoryHigh',  defaultThreshold: 80,  min: 10,  max: 99  },
+  { id: 'dockerSpace', defaultThreshold: 10,  min: 1,   max: 100 },
+  { id: 'zombies',     defaultThreshold: 1,   min: 1,   max: 50  },
+  { id: 'systemdFail', defaultThreshold: 1,   min: 1,   max: 20  },
+  { id: 'dnsBroken',   defaultThreshold: 0,   min: 0,   max: 0,  noThreshold: true },
+];
+
+function saveTrayPreferences() {
+  const trayPrefs = {
+    _trayEnabled: state.trayEnabled,
+    _trayCloseToTray: state.trayCloseToTray,
+    _trayInterval: state.trayInterval,
+    _trayDistro: state.trayDistro,
+    _alertsEnabled: state.alertsEnabled,
+    _alertCooldown: state.alertCooldown,
+    _alertVhdxSize: state.alerts.vhdxSize.enabled,
+    _alertVhdxSizeThreshold: state.alerts.vhdxSize.threshold,
+    _alertMemoryHigh: state.alerts.memoryHigh.enabled,
+    _alertMemoryHighThreshold: state.alerts.memoryHigh.threshold,
+    _alertDockerSpace: state.alerts.dockerSpace.enabled,
+    _alertDockerSpaceThreshold: state.alerts.dockerSpace.threshold,
+    _alertZombies: state.alerts.zombies.enabled,
+    _alertZombiesThreshold: state.alerts.zombies.threshold,
+    _alertSystemdFail: state.alerts.systemdFail.enabled,
+    _alertSystemdFailThreshold: state.alerts.systemdFail.threshold,
+    _alertDnsBroken: state.alerts.dnsBroken.enabled,
+  };
+  window.wslCleaner.saveTrayPreferences(trayPrefs);
+}
+
+function renderTrayPage() {
+  const trayEnabledCb = $('#tray-enabled-cb');
+  const trayCloseToTrayCb = $('#tray-close-to-tray-cb');
+  const trayIntervalInput = $('#tray-interval-input');
+  const trayDistroSelect = $('#tray-distro-select');
+  const alertsEnabledCb = $('#alerts-enabled-cb');
+  const alertCooldownInput = $('#alert-cooldown-input');
+  const alertCardsEl = $('#alert-cards');
+
+  // Populate distro dropdown
+  trayDistroSelect.innerHTML = '';
+  const defaultOpt = document.createElement('option');
+  defaultOpt.value = '';
+  defaultOpt.textContent = t('tray.defaultDistro') || '(Default)';
+  trayDistroSelect.appendChild(defaultOpt);
+  for (const d of state.distros) {
+    const opt = document.createElement('option');
+    opt.value = d.name;
+    opt.textContent = d.name;
+    trayDistroSelect.appendChild(opt);
+  }
+
+  // Set current values
+  trayEnabledCb.checked = state.trayEnabled;
+  trayCloseToTrayCb.checked = state.trayCloseToTray;
+  trayIntervalInput.value = state.trayInterval;
+  trayDistroSelect.value = state.trayDistro;
+  alertsEnabledCb.checked = state.alertsEnabled;
+  alertCooldownInput.value = state.alertCooldown;
+
+  // Enable/disable dependent controls
+  const trayDeps = [trayCloseToTrayCb, trayIntervalInput, trayDistroSelect];
+  trayDeps.forEach(el => el.disabled = !state.trayEnabled);
+
+  const alertDeps = [alertCooldownInput];
+  alertDeps.forEach(el => el.disabled = !state.alertsEnabled);
+
+  // Render alert cards
+  renderAlertCards(alertCardsEl);
+
+  // Remove old listeners by cloning
+  const newTrayEnabledCb = trayEnabledCb.cloneNode(true);
+  trayEnabledCb.parentNode.replaceChild(newTrayEnabledCb, trayEnabledCb);
+  newTrayEnabledCb.checked = state.trayEnabled;
+
+  const newCloseToTrayCb = trayCloseToTrayCb.cloneNode(true);
+  trayCloseToTrayCb.parentNode.replaceChild(newCloseToTrayCb, trayCloseToTrayCb);
+  newCloseToTrayCb.checked = state.trayCloseToTray;
+  newCloseToTrayCb.disabled = !state.trayEnabled;
+
+  const newAlertsEnabledCb = alertsEnabledCb.cloneNode(true);
+  alertsEnabledCb.parentNode.replaceChild(newAlertsEnabledCb, alertsEnabledCb);
+  newAlertsEnabledCb.checked = state.alertsEnabled;
+
+  // Wire event listeners
+  newTrayEnabledCb.addEventListener('change', () => {
+    state.trayEnabled = newTrayEnabledCb.checked;
+    trayDeps.forEach(el => el.disabled = !state.trayEnabled);
+    saveTrayPreferences();
+  });
+
+  newCloseToTrayCb.addEventListener('change', () => {
+    state.trayCloseToTray = newCloseToTrayCb.checked;
+    saveTrayPreferences();
+  });
+
+  trayIntervalInput.addEventListener('change', () => {
+    state.trayInterval = Math.max(10, Math.min(600, parseInt(trayIntervalInput.value, 10) || 60));
+    trayIntervalInput.value = state.trayInterval;
+    saveTrayPreferences();
+  });
+
+  trayDistroSelect.addEventListener('change', () => {
+    state.trayDistro = trayDistroSelect.value;
+    saveTrayPreferences();
+  });
+
+  newAlertsEnabledCb.addEventListener('change', () => {
+    state.alertsEnabled = newAlertsEnabledCb.checked;
+    alertDeps.forEach(el => el.disabled = !state.alertsEnabled);
+    // Dim/undim alert cards
+    alertCardsEl.querySelectorAll('.alert-card').forEach(card => {
+      card.classList.toggle('disabled', !state.alertsEnabled);
+    });
+    saveTrayPreferences();
+  });
+
+  alertCooldownInput.addEventListener('change', () => {
+    state.alertCooldown = Math.max(5, Math.min(1440, parseInt(alertCooldownInput.value, 10) || 30));
+    alertCooldownInput.value = state.alertCooldown;
+    saveTrayPreferences();
+  });
+
+  // Fetch latest stats for preview
+  window.wslCleaner.getTrayLatestStats().then(snapshot => {
+    updateTrayPreview(snapshot);
+  }).catch(() => {});
+}
+
+function renderAlertCards(container) {
+  container.innerHTML = '';
+
+  for (const alertType of ALERT_TYPES) {
+    const alertState = state.alerts[alertType.id];
+    const card = document.createElement('div');
+    card.className = 'alert-card' + (state.alertsEnabled ? '' : ' disabled');
+    card.dataset.alert = alertType.id;
+
+    let thresholdHtml = '';
+    if (!alertType.noThreshold) {
+      thresholdHtml = `
+        <div class="alert-card-threshold">
+          <input type="number" class="stale-days-input" data-alert-threshold="${alertType.id}"
+                 value="${alertState.threshold}" min="${alertType.min}" max="${alertType.max}" />
+          <span data-i18n="alerts.${alertType.id}.unit"></span>
+        </div>`;
+    }
+
+    card.innerHTML = `
+      <label class="toggle" onclick="event.stopPropagation()">
+        <input type="checkbox" data-alert-toggle="${alertType.id}" ${alertState.enabled ? 'checked' : ''} />
+        <span class="toggle-slider"></span>
+      </label>
+      <div class="alert-card-info">
+        <div class="alert-card-title" data-i18n="alerts.${alertType.id}.title"></div>
+        <div class="alert-card-desc" data-i18n="alerts.${alertType.id}.desc"></div>
+      </div>
+      ${thresholdHtml}`;
+
+    // Wire toggle
+    const toggle = card.querySelector(`[data-alert-toggle="${alertType.id}"]`);
+    toggle.addEventListener('change', () => {
+      state.alerts[alertType.id].enabled = toggle.checked;
+      saveTrayPreferences();
+    });
+
+    // Wire threshold input
+    if (!alertType.noThreshold) {
+      const threshInput = card.querySelector(`[data-alert-threshold="${alertType.id}"]`);
+      threshInput.addEventListener('change', () => {
+        const val = parseInt(threshInput.value, 10);
+        state.alerts[alertType.id].threshold = Math.max(alertType.min, Math.min(alertType.max, val || alertType.defaultThreshold));
+        threshInput.value = state.alerts[alertType.id].threshold;
+        saveTrayPreferences();
+      });
+    }
+
+    container.appendChild(card);
+  }
+
+  // Apply i18n to newly created elements
+  applyI18n(container);
+}
+
+function updateTrayPreview(snapshot) {
+  const previewEl = $('#tray-preview-tooltip');
+  if (!previewEl) return;
+
+  if (!snapshot || !snapshot.health) {
+    previewEl.textContent = t('tray.previewEmpty') || 'Enable tray mode to see a live preview.';
+    return;
+  }
+
+  const parts = ['WSL Cleaner'];
+  const h = snapshot.health;
+  const vhdx = snapshot.vhdx;
+
+  if (vhdx && vhdx.length > 0) {
+    const totalSize = vhdx.reduce((sum, v) => sum + v.size, 0);
+    parts.push('Disk: ' + formatBytes(totalSize));
+  }
+
+  if (h.memory && h.memory.total > 0) {
+    const usedPercent = Math.round(
+      ((h.memory.total - h.memory.available) / h.memory.total) * 100
+    );
+    parts.push('RAM: ' + usedPercent + '%');
+  }
+
+  if (h.docker) {
+    parts.push(h.docker.total + ' containers');
+  }
+
+  previewEl.textContent = parts.join(' | ');
+}
 
 // ── Health Dashboard ──────────────────────────────────────────────────────
 

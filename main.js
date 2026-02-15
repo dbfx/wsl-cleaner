@@ -7,6 +7,10 @@ const { isValidExternalUrl, friendlyError } = require('./lib/utils');
 const wslOps = require('./lib/wsl-ops');
 const statsDb = require('./lib/stats-db');
 const preferences = require('./lib/preferences');
+const trayManager = require('./lib/tray-manager');
+
+// Set App User Model ID so Windows toast notifications show "WSL Cleaner"
+app.setAppUserModelId('WSL Cleaner');
 
 // ── Logging setup ────────────────────────────────────────────────────────────
 
@@ -23,11 +27,14 @@ if (!gotTheLock) {
 } else {
   app.on('second-instance', () => {
     if (mainWindow) {
+      if (!mainWindow.isVisible()) mainWindow.show();
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
     }
   });
 }
+
+let isQuitting = false;
 
 let mainWindow;
 
@@ -121,9 +128,20 @@ app.whenReady().then(() => {
   statsDb.init(userData);
   preferences.init(userData);
   createWindow();
+
+  // Initialise system tray if enabled
+  const prefs = preferences.loadPreferences();
+  if (prefs._trayEnabled) {
+    trayManager.initTray(mainWindow, wslOps, preferences);
+  }
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
 });
 
 app.on('window-all-closed', () => {
+  if (trayManager.isActive()) return; // keep running in tray
   app.quit();
 });
 
@@ -134,7 +152,14 @@ ipcMain.on('window-maximize', () => {
   if (mainWindow?.isMaximized()) mainWindow.unmaximize();
   else mainWindow?.maximize();
 });
-ipcMain.on('window-close', () => mainWindow?.close());
+ipcMain.on('window-close', () => {
+  const prefs = preferences.loadPreferences();
+  if (prefs._trayEnabled && prefs._trayCloseToTray && !isQuitting) {
+    mainWindow?.hide();
+  } else {
+    mainWindow?.close();
+  }
+});
 ipcMain.on('app-quit', () => app.quit());
 ipcMain.on('window-reload', () => mainWindow?.webContents.reload());
 ipcMain.on('window-toggle-fullscreen', () => {
@@ -327,5 +352,31 @@ ipcMain.handle('get-locale-preference', () => {
 
 ipcMain.handle('save-locale-preference', (_event, code) => {
   preferences.setLocale(code);
+  trayManager.invalidateLocaleCache();
   return { ok: true };
+});
+
+// ── System tray & alerts ────────────────────────────────────────────────────
+
+ipcMain.handle('save-tray-preferences', (_event, trayPrefs) => {
+  // Read-modify-write: merge tray keys into existing preferences
+  const existing = preferences.loadPreferences();
+  const merged = { ...existing, ...trayPrefs };
+  preferences.savePreferences(merged);
+
+  // React to tray enable/disable
+  if (trayPrefs._trayEnabled && !trayManager.isActive()) {
+    trayManager.initTray(mainWindow, wslOps, preferences);
+  } else if (trayPrefs._trayEnabled === false && trayManager.isActive()) {
+    trayManager.destroyTray();
+  } else if (trayManager.isActive()) {
+    // Interval or distro changed — restart monitoring
+    trayManager.restartMonitoring();
+  }
+
+  return { ok: true };
+});
+
+ipcMain.handle('tray-get-latest-stats', () => {
+  return trayManager.getLatestStats();
 });

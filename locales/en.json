@@ -59,6 +59,7 @@
   "simple.step.update": "Updating WSL...",
   "simple.step.compact": "Compacting virtual disk...",
   "simple.step.restart": "Restarting WSL...",
+  "simple.viewError": "View error details",
   "simple.estimating": "Estimating...",
   "simple.negligible": "negligible",
   "simple.unavailable": "unavailable",
@@ -495,5 +496,55 @@
   "distros.logTitle": "Activity Log",
   "distros.logEmpty": "No activity yet.",
   "distros.sizeUnknown": "--",
-  "distros.default": "default"
+  "distros.default": "default",
+
+  "nav.tray": "Tray & Alerts",
+
+  "tray.title": "System Tray",
+  "tray.desc": "Minimize WSL Cleaner to the system tray for background monitoring with live stats.",
+  "tray.enableToggle": "Enable system tray mode",
+  "tray.closeToTray": "Minimize to tray on close",
+  "tray.intervalLabel": "Update stats every",
+  "tray.intervalUnit": "seconds",
+  "tray.monitorDistro": "Monitor distro",
+  "tray.defaultDistro": "(Default)",
+  "tray.preview": "Tray Preview",
+  "tray.previewEmpty": "Enable tray mode and select a distro to see a live preview.",
+  "tray.menuOpen": "Open WSL Cleaner",
+  "tray.menuQuit": "Quit",
+
+  "alerts.title": "Smart Alerts",
+  "alerts.desc": "Get notified when your WSL environment needs attention. Alerts are checked each time tray stats update.",
+  "alerts.masterToggle": "Enable notifications",
+  "alerts.cooldownLabel": "Minimum time between repeat alerts",
+  "alerts.cooldownUnit": "minutes",
+
+  "alerts.vhdxSize.title": "VHDX Disk Size",
+  "alerts.vhdxSize.desc": "Alert when VHDX file exceeds threshold.",
+  "alerts.vhdxSize.unit": "GB",
+  "alerts.vhdxSize.notification": "WSL disk size is {size} (threshold: {threshold} GB)",
+
+  "alerts.memoryHigh.title": "Memory Pressure",
+  "alerts.memoryHigh.desc": "Alert when RAM usage exceeds threshold.",
+  "alerts.memoryHigh.unit": "%",
+  "alerts.memoryHigh.notification": "WSL memory usage is at {percent}% (threshold: {threshold}%)",
+
+  "alerts.dockerSpace.title": "Docker Containers",
+  "alerts.dockerSpace.desc": "Alert when total Docker containers exceed threshold.",
+  "alerts.dockerSpace.unit": "containers",
+  "alerts.dockerSpace.notification": "Docker has {count} containers (threshold: {threshold})",
+
+  "alerts.zombies.title": "Zombie Processes",
+  "alerts.zombies.desc": "Alert when zombie processes are detected.",
+  "alerts.zombies.unit": "processes",
+  "alerts.zombies.notification": "{count} zombie process(es) detected in WSL",
+
+  "alerts.systemdFail.title": "Systemd Failed Units",
+  "alerts.systemdFail.desc": "Alert when systemd services fail.",
+  "alerts.systemdFail.unit": "units",
+  "alerts.systemdFail.notification": "{count} systemd unit(s) failed in WSL",
+
+  "alerts.dnsBroken.title": "DNS Resolution Failure",
+  "alerts.dnsBroken.desc": "Alert when DNS resolution fails inside WSL.",
+  "alerts.dnsBroken.notification": "DNS resolution is failing inside WSL"
 }
