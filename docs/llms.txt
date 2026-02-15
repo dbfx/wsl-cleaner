@@ -1,0 +1,48 @@
+# WSL Cleaner
+
+> Free, open-source desktop app to clean, optimize, and compact WSL 2 virtual disks. Reclaim 10-100+ GB of SSD space with one click.
+
+## Overview
+
+WSL Cleaner is a free Electron desktop application for Windows 10/11 that provides comprehensive management, monitoring, and optimization for WSL 2 environments. It is open source under the MIT License.
+
+- Website: https://wsl-cleaner.blakey.co
+- Download: https://github.com/dbfx/wsl-cleaner/releases/latest
+- Source Code: https://github.com/dbfx/wsl-cleaner
+- Report Issues: https://github.com/dbfx/wsl-cleaner/issues
+- Platform: Windows 10/11 with WSL 2 and Hyper-V enabled
+
+## Features
+
+### Cleaner
+One-click Clean & Compact runs all enabled tasks, removes stale directories, trims the filesystem, and compacts your VHDX. 60+ cleanup tasks with real-time progress, live timer, and before/after disk size comparison. Includes automatic stale directory detection (node_modules, vendor, __pycache__) and clean-only mode for faster passes without restart.
+
+### Cleanup Settings
+Full control over 60+ cleanup tasks organized into categories: system, editor, package manager, and framework. Each task shows what it does and estimated reclaimable space. Auto-detects installed tools and only shows relevant tasks. Includes real-time search filtering and aggressive tasks (disabled by default) for deep cleaning.
+
+### Cleanup Stats
+Track cleanup history with interactive charts. See total space saved, average per session, cleanup streak, disk size over time, space saved per session, and a session history table with dates and durations.
+
+### Disk Map
+WinDirStat-style interactive treemap showing exactly what consumes space inside WSL. Color-coded visualization with click-to-drill-down navigation, hover tooltips with path, size, and percentage. Configurable scan depth (2-5 levels) and Windows mount exclusion.
+
+### Health Dashboard
+Real-time system dashboard monitoring CPU, memory, disk, networking, processes, and services. Auto-refreshes every 10 seconds with visual progress bars. Shows CPU load, memory and swap usage, network interface stats, DNS status, top processes, Docker container counts, systemd state, and WSL config limits vs actual usage.
+
+### Distro Manager
+Manage all WSL distributions from one panel. Comparison table with VHDX size, package counts, and uptime. Export distro to .tar backup, import from .tar with custom name and location, one-click clone and restart, and a migration wizard to move distros between drives.
+
+### Performance Analyzer
+Benchmark WSL startup time and profile shell configuration to identify bottlenecks. Cold-boot benchmark for each distro with historical tracking. Shell startup profiler detecting slow items like nvm, conda, oh-my-zsh, pyenv, rbenv, and sdkman. Per-file RC analysis with measured sourcing times, total vs baseline timing to isolate overhead, and actionable optimization suggestions.
+
+### WSL Config Editor
+GUI editor for .wslconfig (global) and per-distro wsl.conf. Configure memory, CPU, swap, and networking. One-click optimize fills recommended values based on your hardware. Automatic backup before every save.
+
+### Startup Manager
+View and manage systemd services. Enable or disable services, search and filter by state, and expand details to see dependencies and PID info. Init system detection with setup hints.
+
+### Tray & Alerts
+Background monitoring via system tray with live tooltip showing disk size, RAM usage, and Docker stats. Minimize-to-tray support. Six configurable alert types with customizable thresholds and smart notifications.
+
+### Internationalization
+Available in English, French, German, Spanish, Chinese, Hindi, and Portuguese.
