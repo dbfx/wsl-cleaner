@@ -1,3 +1,19 @@
+# [1.2.0](https://github.com/dbfx/wsl-cleaner/compare/v1.1.0...v1.2.0) (2026-02-15)
+
+
+### Features
+
+* better css, splash animations, etc ([0bad2d7](https://github.com/dbfx/wsl-cleaner/commit/0bad2d7800eeb1591db6f784dc9752ce0b3ad2ee))
+* cli mode, preferences, clean only option, size estimation ([bc7013a](https://github.com/dbfx/wsl-cleaner/commit/bc7013a58595d4ecc703136bb85ef2c66332762c))
+* disk usage scanning ([db3c6d1](https://github.com/dbfx/wsl-cleaner/commit/db3c6d10cd91a0209ac5b3afc0546d4dc8669266))
+* language support, persistent settings ([73c4c77](https://github.com/dbfx/wsl-cleaner/commit/73c4c77ba3b7b6fa3599b49fb7127c2491b77342))
+* sounds, confetti, tooltip previews, etc ([4f13094](https://github.com/dbfx/wsl-cleaner/commit/4f130941bce493f9a94e32634139c2cecd9a57e7))
+* tray options, improved completion page, etc ([607eefb](https://github.com/dbfx/wsl-cleaner/commit/607eefbfc19b19e950fc11f78dfe69ff96da04ac))
+* wsl health center ([84c3acd](https://github.com/dbfx/wsl-cleaner/commit/84c3acdbd089fc8ab3be07a5af8748970564fc58))
+* wsl system health ([82bd8c8](https://github.com/dbfx/wsl-cleaner/commit/82bd8c87699ba7d727022af4f6e8b038263a6b93))
+
+
+
 # [1.1.0](https://github.com/dbfx/wsl-cleaner/compare/v1.0.3...v1.1.0) (2026-02-15)
 
 
