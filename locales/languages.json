@@ -1,0 +1,12 @@
+{
+  "sourceLocale": "en",
+  "locales": [
+    { "code": "en", "name": "English", "nativeName": "English" },
+    { "code": "fr", "name": "French", "nativeName": "Français" },
+    { "code": "zh", "name": "Mandarin Chinese", "nativeName": "中文" },
+    { "code": "hi", "name": "Hindi", "nativeName": "हिन्दी" },
+    { "code": "es", "name": "Spanish", "nativeName": "Español" },
+    { "code": "pt", "name": "Portuguese", "nativeName": "Português" },
+    { "code": "de", "name": "German", "nativeName": "Deutsch" }
+  ]
+}

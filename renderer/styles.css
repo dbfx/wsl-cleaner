@@ -808,8 +808,8 @@ a:hover {
   font-family: var(--font-mono);
 }
 
-/* ── Simple Page ──────────────────────────────────────────────────────────── */
-#page-simple {
+/* ── Cleaner Page ────────────────────────────────────────────────────────── */
+#page-cleaner {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -853,22 +853,6 @@ a:hover {
   color: var(--text-muted);
   font-size: 14px;
   line-height: 1.6;
-}
-
-.simple-mode-toggle {
-  position: absolute;
-  top: 12px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: default;
-  z-index: 1;
-}
-.simple-mode-toggle-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  user-select: none;
 }
 
 .btn-simple-go {
@@ -1610,4 +1594,42 @@ a:hover {
   padding: 10px 22px;
   font-size: 13px;
   font-weight: 600;
+}
+
+/* ── Language selector ──────────────────────────────────────────────────────── */
+
+.language-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  justify-content: center;
+}
+
+.language-selector label {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.language-selector select {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.language-selector select:hover {
+  border-color: var(--accent);
+}
+
+.language-selector select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.15);
 }

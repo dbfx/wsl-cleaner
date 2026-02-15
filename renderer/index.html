@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
-  <title>WSL Cleaner</title>
+  <title data-i18n="app.title">WSL Cleaner</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -14,16 +14,16 @@
       <svg class="titlebar-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M3 6h18M3 12h18M3 18h18"/>
       </svg>
-      <span class="titlebar-title">WSL Cleaner</span>
+      <span class="titlebar-title" data-i18n="app.title">WSL Cleaner</span>
     </div>
     <div class="titlebar-controls">
-      <button id="btn-minimize" class="titlebar-btn" aria-label="Minimize">
+      <button id="btn-minimize" class="titlebar-btn" aria-label="Minimize" data-i18n-aria="titlebar.minimize">
         <svg width="12" height="12" viewBox="0 0 12 12"><rect y="5" width="12" height="2" fill="currentColor"/></svg>
       </button>
-      <button id="btn-maximize" class="titlebar-btn" aria-label="Maximize">
+      <button id="btn-maximize" class="titlebar-btn" aria-label="Maximize" data-i18n-aria="titlebar.maximize">
         <svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
       </button>
-      <button id="btn-close" class="titlebar-btn btn-close" aria-label="Close">
+      <button id="btn-close" class="titlebar-btn btn-close" aria-label="Close" data-i18n-aria="titlebar.close">
         <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5"/></svg>
       </button>
     </div>
@@ -38,9 +38,9 @@
           <line x1="15" y1="9" x2="9" y2="15"/>
           <line x1="9" y1="9" x2="15" y2="15"/>
         </svg>
-        <h2>WSL 2 Not Detected</h2>
-        <p id="error-message">WSL 2 is not installed or no distribution was found.</p>
-        <a href="https://learn.microsoft.com/en-us/windows/wsl/install" class="link" target="_blank">Learn how to install WSL 2</a>
+        <h2 data-i18n="error.notDetected">WSL 2 Not Detected</h2>
+        <p id="error-message" data-i18n="error.notInstalled">WSL 2 is not installed or no distribution was found.</p>
+        <a href="https://learn.microsoft.com/en-us/windows/wsl/install" class="link" target="_blank" data-i18n="error.installLink">Learn how to install WSL 2</a>
       </div>
     </section>
 
@@ -48,7 +48,7 @@
     <section id="loading-screen" class="screen">
       <div class="loader-wrap">
         <div class="spinner"></div>
-        <p>Detecting WSL 2...</p>
+        <p data-i18n="status.detecting">Detecting WSL 2...</p>
       </div>
     </section>
 
@@ -57,10 +57,10 @@
       <!-- Status bar -->
       <div id="status-bar">
         <span class="status-dot"></span>
-        <span id="status-text">WSL 2 Ready</span>
+        <span id="status-text" data-i18n="status.ready">WSL 2 Ready</span>
         <div id="distro-picker" class="distro-picker">
           <button id="distro-picker-btn" class="badge distro-picker-btn">
-            <span id="distro-picker-label">No distro</span>
+            <span id="distro-picker-label" data-i18n="distro.none">No distro</span>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <polyline points="6,9 12,15 18,9"/>
             </svg>
@@ -74,56 +74,44 @@
       <!-- Sidebar + content layout -->
       <div id="main-layout">
         <nav id="sidebar">
-          <a class="nav-item active" data-page="simple">
+          <a class="nav-item active" data-page="cleaner">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/>
             </svg>
-            <span>Simple</span>
+            <span data-i18n="nav.cleaner">Cleaner</span>
           </a>
-          <a class="nav-item" data-page="advanced">
+          <a class="nav-item" data-page="settings">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
-              <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
-              <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
-              <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/>
-              <line x1="17" y1="16" x2="23" y2="16"/>
+              <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
-            <span>Advanced</span>
+            <span data-i18n="nav.settings">Settings</span>
           </a>
           <a class="nav-item" data-page="stats">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
             </svg>
-            <span>Stats</span>
+            <span data-i18n="nav.stats">Stats</span>
           </a>
           <div class="nav-spacer"></div>
           <a class="nav-item" data-page="about">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
             </svg>
-            <span>About</span>
+            <span data-i18n="nav.about">About</span>
           </a>
         </nav>
 
         <div id="page-container">
-          <!-- ════ Simple Page ════ -->
-          <div id="page-simple" class="page">
-            <div class="simple-mode-toggle" title="Skip WSL shutdown, update, disk compaction, and restart. Only run cleanup tasks inside WSL.">
-              <label class="toggle" onclick="event.stopPropagation()">
-                <input type="checkbox" id="simple-clean-only-cb" />
-                <span class="toggle-slider"></span>
-              </label>
-              <span class="simple-mode-toggle-label">Clean only</span>
-            </div>
-
+          <!-- ════ Cleaner Page ════ -->
+          <div id="page-cleaner" class="page">
             <div class="simple-center">
               <div class="simple-hero">
                 <svg class="simple-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
                 </svg>
-                <h2 class="simple-title">WSL Disk Size</h2>
+                <h2 class="simple-title" data-i18n="simple.diskSize">WSL Disk Size</h2>
                 <div id="simple-size" class="simple-size-value">--</div>
-                <p class="simple-desc">Clean your WSL instance and compact the virtual disk to reclaim space.</p>
+                <p class="simple-desc" data-i18n="simple.desc">Clean your WSL instance and compact the virtual disk to reclaim space.</p>
               </div>
 
               <div id="simple-estimate" class="simple-estimate hidden">
@@ -131,19 +119,19 @@
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                   </svg>
-                  Estimate Reclaimable Space
+                  <span data-i18n="simple.estimateBtn">Estimate Reclaimable Space</span>
                 </button>
                 <div id="simple-estimate-result" class="simple-estimate-result hidden">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/>
                   </svg>
-                  <span>Estimated reclaimable: <strong id="simple-estimate-total">--</strong></span>
+                  <span><span data-i18n="simple.estimateLabel">Estimated reclaimable:</span> <strong id="simple-estimate-total">--</strong></span>
                 </div>
               </div>
 
               <button id="btn-simple-go" class="btn-primary btn-simple-go">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>
-                <span id="btn-simple-go-label">Clean &amp; Compact</span>
+                <span id="btn-simple-go-label" data-i18n-html="simple.cleanCompact">Clean &amp; Compact</span>
               </button>
 
               <!-- Disclaimer -->
@@ -151,60 +139,61 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
-                <span>This deletes files &amp; old dependency directories. Use <strong>Advanced</strong> mode to see exactly what will be deleted and control each task. Designed for WSL partitions used for development.</span>
+                <span data-i18n-html="simple.disclaimer">This deletes files &amp; old dependency directories. Use <strong>Settings</strong> to see exactly what will be cleaned and control each task. Designed for WSL partitions used for development.</span>
               </div>
 
               <!-- Step progress list -->
               <div id="simple-steps" class="simple-steps hidden">
                 <div class="step-item" data-step="stale">
                   <div class="step-icon-slot"></div>
-                  <span class="step-label">Scanning &amp; removing stale directories...</span>
+                  <span class="step-label" data-i18n-html="simple.step.stale">Scanning &amp; removing stale directories...</span>
                 </div>
                 <div class="step-item" data-step="cleanup">
                   <div class="step-icon-slot"></div>
-                  <span class="step-label">Running cleanup tasks...</span>
+                  <span class="step-label" data-i18n="simple.step.cleanup">Running cleanup tasks...</span>
                 </div>
                 <div class="step-item" data-step="fstrim">
                   <div class="step-icon-slot"></div>
-                  <span class="step-label">Running filesystem TRIM...</span>
+                  <span class="step-label" data-i18n="simple.step.fstrim">Running filesystem TRIM...</span>
                 </div>
                 <div class="step-item" data-step="shutdown">
                   <div class="step-icon-slot"></div>
-                  <span class="step-label">Shutting down WSL...</span>
+                  <span class="step-label" data-i18n="simple.step.shutdown">Shutting down WSL...</span>
                 </div>
                 <div class="step-item" data-step="update">
                   <div class="step-icon-slot"></div>
-                  <span class="step-label">Updating WSL...</span>
+                  <span class="step-label" data-i18n="simple.step.update">Updating WSL...</span>
                 </div>
                 <div class="step-item" data-step="compact">
                   <div class="step-icon-slot"></div>
-                  <span class="step-label">Compacting virtual disk...</span>
+                  <span class="step-label" data-i18n="simple.step.compact">Compacting virtual disk...</span>
                 </div>
                 <div class="step-item" data-step="restart">
                   <div class="step-icon-slot"></div>
-                  <span class="step-label">Restarting WSL...</span>
+                  <span class="step-label" data-i18n="simple.step.restart">Restarting WSL...</span>
                 </div>
               </div>
 
               <!-- Result card (reused structure) -->
               <div id="simple-result" class="hidden">
                 <div class="result-card">
-                  <h3>Cleanup Complete</h3>
+                  <h3 data-i18n="result.complete">Cleanup Complete</h3>
                   <div class="size-comparison">
                     <div class="size-box">
-                      <span class="size-label">Before</span>
+                      <span class="size-label" data-i18n="result.before">Before</span>
                       <span id="simple-size-before" class="size-value">--</span>
                     </div>
                     <svg class="arrow-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2">
                       <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/>
                     </svg>
                     <div class="size-box">
-                      <span class="size-label">After</span>
+                      <span class="size-label" data-i18n="result.after">After</span>
                       <span id="simple-size-after" class="size-value">--</span>
                     </div>
                   </div>
                   <div class="savings">
-                    <span>Space Saved: </span>
+                    <span data-i18n="result.spaceSaved">Space Saved:</span>
+                    <span> </span>
                     <span id="simple-space-saved" class="accent">--</span>
                   </div>
                 </div>
@@ -212,46 +201,17 @@
             </div>
           </div>
 
-          <!-- ════ Advanced Page ════ -->
-          <div id="page-advanced" class="page hidden">
-            <!-- Phase 1: Cleanup tasks -->
-            <h2 class="section-title">Cleanup Tasks</h2>
-            <p class="section-desc">Select which tasks to run inside your WSL instance. All tasks are enabled by default.</p>
-
-            <div id="estimate-summary" class="estimate-summary hidden">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-              <span>Estimated reclaimable: <strong id="estimate-total">--</strong></span>
-            </div>
+          <!-- ════ Settings Page ════ -->
+          <div id="page-settings" class="page hidden">
+            <!-- Cleanup tasks -->
+            <h2 class="section-title" data-i18n="settings.tasksTitle">Cleanup Tasks</h2>
+            <p class="section-desc" data-i18n="settings.tasksDesc">Choose which cleanup tasks the Cleaner will run. Your selections are saved automatically.</p>
 
             <div id="task-cards"></div>
 
-            <div class="btn-row">
-              <button id="btn-estimate-sizes" class="btn-outline btn-estimate">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-                Estimate Sizes
-              </button>
-              <button id="btn-run-cleanup" class="btn-primary">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>
-                Run Cleanup
-              </button>
-            </div>
-
-            <!-- Log output -->
-            <div id="log-panel" class="hidden">
-              <div class="log-header">
-                <span>Output</span>
-                <button id="btn-clear-log" class="btn-small">Clear</button>
-              </div>
-              <pre id="log-output"></pre>
-            </div>
-
-            <!-- Phase 2: Stale Directory Scanner -->
-            <h2 class="section-title" style="margin-top: 32px;">Stale Directories</h2>
-            <p class="section-desc">Find and remove old dependency, build, and cache directories (<code>node_modules</code>, <code>vendor</code>, <code>__pycache__</code>, <code>.next</code>, <code>.nuxt</code>, <code>.turbo</code>, <code>.yarn</code>, <code>target</code>, <code>.gradle</code>, <code>dist</code>, <code>.venv</code>, and more) that haven't been modified recently. These are safe to delete &mdash; they'll be recreated automatically when you next build or install.</p>
+            <!-- Stale Directories -->
+            <h2 class="section-title" style="margin-top: 32px;" data-i18n="stale.title">Stale Directories</h2>
+            <p class="section-desc" data-i18n-html="stale.desc">Find and remove old dependency, build, and cache directories (<code>node_modules</code>, <code>vendor</code>, <code>__pycache__</code>, <code>.next</code>, <code>.nuxt</code>, <code>.turbo</code>, <code>.yarn</code>, <code>target</code>, <code>.gradle</code>, <code>dist</code>, <code>.venv</code>, and more) that haven't been modified recently. These are safe to delete &mdash; they'll be recreated automatically when you next build or install.</p>
 
             <div class="stale-controls">
               <div class="stale-toggle-row">
@@ -259,92 +219,40 @@
                   <input type="checkbox" id="stale-enabled-cb" checked />
                   <span class="toggle-slider"></span>
                 </label>
-                <span class="stale-toggle-label">Enable stale directory cleanup</span>
+                <span class="stale-toggle-label" data-i18n="stale.enableToggle">Enable stale directory cleanup</span>
               </div>
               <div class="stale-days-row">
-                <label for="stale-days-input">Remove directories not modified in the last</label>
+                <label for="stale-days-input" data-i18n="stale.daysLabel">Remove directories not modified in the last</label>
                 <input type="number" id="stale-days-input" class="stale-days-input" value="30" min="1" max="365" />
-                <span>days</span>
+                <span data-i18n="stale.daysUnit">days</span>
               </div>
             </div>
 
-            <button id="btn-scan-stale" class="btn-primary">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              Scan for Stale Directories
-            </button>
+            <!-- Disk Compaction -->
+            <h2 class="section-title" style="margin-top: 32px;" data-i18n="settings.compactTitle">Disk Compaction</h2>
+            <p class="section-desc" data-i18n="settings.compactDesc">When enabled, the Cleaner will shut down WSL, update it, and compact the virtual disk after running cleanup tasks.</p>
 
-            <div id="stale-results" class="hidden">
-              <div id="stale-scan-summary" class="stale-scan-summary"></div>
-              <div class="stale-toolbar">
-                <label class="stale-select-all">
-                  <input type="checkbox" id="stale-select-all-cb" checked />
-                  <span>Select All</span>
+            <div class="stale-controls">
+              <div class="stale-toggle-row">
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" id="compact-enabled-cb" checked />
+                  <span class="toggle-slider"></span>
                 </label>
-              </div>
-              <div id="stale-dir-list" class="stale-dir-list"></div>
-              <button id="btn-delete-stale" class="btn-primary btn-danger">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                </svg>
-                Delete Selected
-              </button>
-              <div id="stale-delete-result" class="hidden">
-                <div class="result-card stale-result-card">
-                  <h3>Deletion Complete</h3>
-                  <p id="stale-delete-summary"></p>
-                </div>
+                <span class="stale-toggle-label" data-i18n="settings.compactToggle">Compact disk after cleaning</span>
               </div>
             </div>
-
-            <!-- Phase 3: Disk Compaction -->
-            <h2 class="section-title" style="margin-top: 32px;">Disk Compaction</h2>
-            <p class="section-desc">Shut down WSL, update it, and compact the virtual disk to reclaim unused space on your Windows drive.</p>
 
             <div id="vhdx-info" class="card">
               <div class="card-body">
                 <div class="vhdx-details">
                   <div class="vhdx-row">
-                    <span class="label">Virtual Disk</span>
-                    <span id="vhdx-path" class="value mono">Searching...</span>
+                    <span class="label" data-i18n="compact.vdisk">Virtual Disk</span>
+                    <span id="vhdx-path" class="value mono" data-i18n="compact.searching">Searching...</span>
                   </div>
                   <div class="vhdx-row">
-                    <span class="label">Current Size</span>
+                    <span class="label" data-i18n="compact.currentSize">Current Size</span>
                     <span id="vhdx-size" class="value mono">--</span>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            <button id="btn-compact" class="btn-primary btn-compact">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-                <polyline points="7,23 3,19 7,15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-              </svg>
-              Compact Disk
-            </button>
-
-            <!-- Compaction result -->
-            <div id="compact-result" class="hidden">
-              <div class="result-card">
-                <h3>Compaction Complete</h3>
-                <div class="size-comparison">
-                  <div class="size-box">
-                    <span class="size-label">Before</span>
-                    <span id="size-before" class="size-value">--</span>
-                  </div>
-                  <svg class="arrow-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2">
-                    <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/>
-                  </svg>
-                  <div class="size-box">
-                    <span class="size-label">After</span>
-                    <span id="size-after" class="size-value">--</span>
-                  </div>
-                </div>
-                <div class="savings">
-                  <span>Space Saved: </span>
-                  <span id="space-saved" class="accent">--</span>
                 </div>
               </div>
             </div>
@@ -352,8 +260,8 @@
 
           <!-- ════ Stats Page ════ -->
           <div id="page-stats" class="page hidden">
-            <h2 class="section-title">Cleanup Stats</h2>
-            <p class="section-desc">Track your cleanup history and see how much space you've recovered over time.</p>
+            <h2 class="section-title" data-i18n="stats.title">Cleanup Stats</h2>
+            <p class="section-desc" data-i18n="stats.desc">Track your cleanup history and see how much space you've recovered over time.</p>
 
             <!-- Summary stat cards -->
             <div class="stats-grid">
@@ -364,7 +272,7 @@
                   </svg>
                 </div>
                 <div class="stat-value" id="stat-total-saved">--</div>
-                <div class="stat-label">Total Space Saved</div>
+                <div class="stat-label" data-i18n="stats.totalSaved">Total Space Saved</div>
               </div>
               <div class="stat-card">
                 <div class="stat-icon">
@@ -373,7 +281,7 @@
                   </svg>
                 </div>
                 <div class="stat-value" id="stat-total-cleanups">0</div>
-                <div class="stat-label">Cleanups Performed</div>
+                <div class="stat-label" data-i18n="stats.cleanups">Cleanups Performed</div>
               </div>
               <div class="stat-card">
                 <div class="stat-icon">
@@ -382,7 +290,7 @@
                   </svg>
                 </div>
                 <div class="stat-value" id="stat-avg-saved">--</div>
-                <div class="stat-label">Avg Space Saved</div>
+                <div class="stat-label" data-i18n="stats.avgSaved">Avg Space Saved</div>
               </div>
               <div class="stat-card">
                 <div class="stat-icon">
@@ -390,40 +298,40 @@
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                   </svg>
                 </div>
-                <div class="stat-value" id="stat-last-cleanup">Never</div>
-                <div class="stat-label">Last Cleanup</div>
+                <div class="stat-value" id="stat-last-cleanup" data-i18n="stats.never">Never</div>
+                <div class="stat-label" data-i18n="stats.lastCleanup">Last Cleanup</div>
               </div>
             </div>
 
             <!-- Charts -->
             <div class="chart-card">
-              <div class="chart-header">Disk Size Over Time</div>
+              <div class="chart-header" data-i18n="stats.diskChart">Disk Size Over Time</div>
               <div class="chart-body">
                 <canvas id="chart-disk-size"></canvas>
               </div>
-              <div id="chart-disk-empty" class="chart-empty hidden">No compaction data yet. Run a cleanup to start tracking.</div>
+              <div id="chart-disk-empty" class="chart-empty hidden" data-i18n="stats.diskEmpty">No compaction data yet. Run a cleanup to start tracking.</div>
             </div>
 
             <div class="chart-card">
-              <div class="chart-header">Space Saved Per Session</div>
+              <div class="chart-header" data-i18n="stats.savedChart">Space Saved Per Session</div>
               <div class="chart-body">
                 <canvas id="chart-space-saved"></canvas>
               </div>
-              <div id="chart-saved-empty" class="chart-empty hidden">No sessions with space savings yet.</div>
+              <div id="chart-saved-empty" class="chart-empty hidden" data-i18n="stats.savedEmpty">No sessions with space savings yet.</div>
             </div>
 
             <!-- History list -->
             <div class="history-section">
               <div class="history-header">
-                <h3>Cleanup History</h3>
-                <button id="btn-clear-history" class="btn-small">Clear History</button>
+                <h3 data-i18n="stats.history">Cleanup History</h3>
+                <button id="btn-clear-history" class="btn-small" data-i18n="stats.clearHistory">Clear History</button>
               </div>
               <div id="history-list" class="history-list">
                 <div class="stats-empty" id="history-empty">
                   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
                   </svg>
-                  <p>No cleanup history yet. Run a cleanup to start tracking your stats.</p>
+                  <p data-i18n="stats.historyEmpty">No cleanup history yet. Run a cleanup to start tracking your stats.</p>
                 </div>
               </div>
             </div>
@@ -437,9 +345,9 @@
                   <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
                 </svg>
               </div>
-              <h2 class="about-title">WSL Cleaner</h2>
+              <h2 class="about-title" data-i18n="app.title">WSL Cleaner</h2>
               <span id="about-version" class="badge">v1.0.0</span>
-              <p class="about-desc">A lightweight utility to clean, optimize, and compact your Windows Subsystem for Linux installation. Reclaim disk space with one click.</p>
+              <p class="about-desc" data-i18n="about.desc">A lightweight utility to clean, optimize, and compact your Windows Subsystem for Linux installation. Reclaim disk space with one click.</p>
 
               <!-- Update status area -->
               <div id="update-status" class="update-status hidden"></div>
@@ -449,24 +357,30 @@
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
                   </svg>
-                  Check for Updates
+                  <span data-i18n="about.checkUpdates">Check for Updates</span>
                 </button>
                 <button id="btn-install-update" class="btn-primary btn-success hidden">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
                   </svg>
-                  Install &amp; Restart
+                  <span data-i18n-html="about.installRestart">Install &amp; Restart</span>
                 </button>
                 <button id="btn-github" class="btn-outline">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
                   </svg>
-                  View on GitHub
+                  <span data-i18n="about.viewGithub">View on GitHub</span>
                 </button>
               </div>
 
+              <!-- Language selector -->
+              <div class="language-selector">
+                <label data-i18n="language.label">Language</label>
+                <select id="locale-select"></select>
+              </div>
+
               <div class="about-footer">
-                <p>Made for the WSL community</p>
+                <p data-i18n="about.footer">Made for the WSL community</p>
               </div>
             </div>
           </div>
@@ -482,22 +396,23 @@
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
         </svg>
-        <h3>Aggressive Tasks Enabled</h3>
+        <h3 data-i18n="modal.aggressiveTitle">Aggressive Tasks Enabled</h3>
       </div>
-      <p class="modal-desc">The following tasks will <strong>permanently destroy data</strong> that may be difficult or impossible to restore:</p>
+      <p class="modal-desc" data-i18n-html="modal.aggressiveDesc">The following tasks will <strong>permanently destroy data</strong> that may be difficult or impossible to restore:</p>
       <div id="aggressive-modal-list" class="modal-task-list"></div>
-      <p class="modal-hint">These tasks are marked <span class="chip-aggressive" style="display:inline-block;vertical-align:middle;">aggressive</span> because they remove data beyond typical caches. Make sure you understand the consequences before proceeding.</p>
+      <p class="modal-hint" data-i18n-html="modal.aggressiveHint">These tasks are marked <span class="chip-aggressive" style="display:inline-block;vertical-align:middle;">aggressive</span> because they remove data beyond typical caches. Make sure you understand the consequences before proceeding.</p>
       <div class="modal-actions">
-        <button id="aggressive-modal-cancel" class="btn-outline modal-btn">Cancel</button>
+        <button id="aggressive-modal-cancel" class="btn-outline modal-btn" data-i18n="modal.cancel">Cancel</button>
         <button id="aggressive-modal-proceed" class="btn-primary btn-danger modal-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5,3 19,12 5,21"/></svg>
-          Proceed Anyway
+          <span data-i18n="modal.proceed">Proceed Anyway</span>
         </button>
       </div>
     </div>
   </div>
 
   <script src="utils.js"></script>
+  <script src="i18n.js"></script>
   <script src="tasks.js"></script>
   <script src="chart.umd.min.js"></script>
   <script src="app.js"></script>

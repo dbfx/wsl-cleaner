@@ -28,19 +28,20 @@ function estimateTotalSize(dirs) {
 }
 
 /**
- * Map a Linux exit code to a short human-readable hint.
+ * Map a Linux exit code to an i18n key for a human-readable hint.
  * Returns null for unknown codes.
+ * Use t(exitCodeHint(code)) in the renderer to get the translated string.
  */
 function exitCodeHint(code) {
   switch (code) {
-    case 1:   return 'general error';
-    case 2:   return 'misuse of shell command';
-    case 126:  return 'permission denied or not executable';
-    case 127:  return 'command not found';
-    case 130:  return 'interrupted';
-    case 137:  return 'killed (out of memory?)';
-    case 139:  return 'segmentation fault';
-    case 143:  return 'terminated';
+    case 1:   return 'exitCode.1';
+    case 2:   return 'exitCode.2';
+    case 126:  return 'exitCode.126';
+    case 127:  return 'exitCode.127';
+    case 130:  return 'exitCode.130';
+    case 137:  return 'exitCode.137';
+    case 139:  return 'exitCode.139';
+    case 143:  return 'exitCode.143';
     default:  return null;
   }
 }

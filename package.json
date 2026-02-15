@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
-    "release": "node scripts/release.js"
+    "release": "node scripts/release.js",
+    "translate": "node scripts/translate.js"
   },
   "author": "dbfx",
   "license": "MIT",
@@ -37,7 +38,8 @@
       "preload.js",
       "lib/**/*",
       "renderer/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "locales/**/*"
     ],
     "directories": {
       "output": "dist"
@@ -64,7 +66,9 @@
   },
   "dependencies": {
     "chart.js": "^4.5.1",
+    "dotenv": "^17.3.1",
     "electron-log": "^5.4.3",
-    "electron-updater": "^6.7.3"
+    "electron-updater": "^6.7.3",
+    "openai": "^6.22.0"
   }
 }

@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 const { isValidExternalUrl, friendlyError } = require('./lib/utils');
@@ -235,5 +236,38 @@ ipcMain.handle('get-task-preferences', () => {
 
 ipcMain.handle('save-task-preferences', (_event, prefs) => {
   preferences.savePreferences(prefs);
+  return { ok: true };
+});
+
+// ── i18n / Locale data ───────────────────────────────────────────────────────
+
+ipcMain.handle('get-locale-data', (_event, code) => {
+  // Sanitise the locale code to prevent directory traversal
+  const safeCode = String(code).replace(/[^a-z0-9-]/gi, '');
+  const localeFile = path.join(__dirname, 'locales', `${safeCode}.json`);
+  try {
+    const raw = fs.readFileSync(localeFile, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+});
+
+ipcMain.handle('get-languages', () => {
+  const langFile = path.join(__dirname, 'locales', 'languages.json');
+  try {
+    const raw = fs.readFileSync(langFile, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return { sourceLocale: 'en', locales: [{ code: 'en', name: 'English', nativeName: 'English' }] };
+  }
+});
+
+ipcMain.handle('get-locale-preference', () => {
+  return preferences.getLocale();
+});
+
+ipcMain.handle('save-locale-preference', (_event, code) => {
+  preferences.setLocale(code);
   return { ok: true };
 });

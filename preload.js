@@ -54,4 +54,10 @@ contextBridge.exposeInMainWorld('wslCleaner', {
     ipcRenderer.on('update-status', handler);
     return () => ipcRenderer.removeListener('update-status', handler);
   },
+
+  // i18n / Locale
+  getLocaleData: (code) => ipcRenderer.invoke('get-locale-data', code),
+  getLanguages: () => ipcRenderer.invoke('get-languages'),
+  getLocalePreference: () => ipcRenderer.invoke('get-locale-preference'),
+  saveLocalePreference: (code) => ipcRenderer.invoke('save-locale-preference', code),
 });
