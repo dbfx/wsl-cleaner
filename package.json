@@ -48,6 +48,9 @@
       "uninstallerIcon": "assets/icon.ico"
     }
   },
+  "overrides": {
+    "@conventional-changelog/git-client": "^2.0.0"
+  },
   "devDependencies": {
     "conventional-changelog-cli": "^5.0.0",
     "electron": "^40.4.1",
