@@ -119,6 +119,19 @@ ipcMain.handle('detect-tools', async (_event, distro) => {
     { name: 'pip3', cmd: 'which pip3' },
     { name: 'apt', cmd: 'which apt' },
     { name: 'dnf', cmd: 'which dnf' },
+    { name: 'docker', cmd: 'which docker' },
+    { name: 'pnpm', cmd: 'which pnpm' },
+    { name: 'mvn', cmd: 'which mvn' },
+    { name: 'gradle', cmd: 'which gradle' },
+    { name: 'conda', cmd: 'which conda' },
+    { name: 'gem', cmd: 'which gem' },
+    { name: 'dotnet', cmd: 'which dotnet' },
+    { name: 'deno', cmd: 'which deno' },
+    { name: 'bun', cmd: 'which bun' },
+    { name: 'dart', cmd: 'which dart' },
+    { name: 'brew', cmd: 'which brew' },
+    { name: 'ccache', cmd: 'which ccache' },
+    { name: 'bazel', cmd: 'which bazel' },
   ];
 
   for (const check of checks) {
@@ -291,7 +304,12 @@ ipcMain.handle('run-wsl-command', async (event, { command, taskId }) => {
 
 // ── Scan for stale directories inside WSL ────────────────────────────────────
 
-const STALE_DIR_NAMES = ['node_modules', 'vendor', '__pycache__', '.next', '.nuxt', '.turbo', '.yarn'];
+const STALE_DIR_NAMES = [
+  'node_modules', 'vendor', '__pycache__', '.next', '.nuxt', '.turbo', '.yarn',
+  'target', '.gradle', '.tox', '.pytest_cache', '.mypy_cache', 'dist',
+  '.parcel-cache', '.cache', '.venv', 'venv', 'elm-stuff',
+  '.terraform', '.serverless', '.nx',
+];
 
 ipcMain.handle('scan-stale-dirs', async (_event, { distro, days }) => {
   const staleDays = Math.max(1, parseInt(days, 10) || 30);

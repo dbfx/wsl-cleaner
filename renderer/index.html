@@ -125,6 +125,10 @@
                   <div class="step-icon-slot"></div>
                   <span class="step-label">Removing stale directories...</span>
                 </div>
+                <div class="step-item" data-step="fstrim">
+                  <div class="step-icon-slot"></div>
+                  <span class="step-label">Running filesystem TRIM...</span>
+                </div>
                 <div class="step-item" data-step="shutdown">
                   <div class="step-icon-slot"></div>
                   <span class="step-label">Shutting down WSL...</span>
@@ -193,7 +197,7 @@
 
             <!-- Phase 2: Stale Directory Scanner -->
             <h2 class="section-title" style="margin-top: 32px;">Stale Directories</h2>
-            <p class="section-desc">Find and remove old dependency and build directories (<code>node_modules</code>, <code>vendor</code>, <code>__pycache__</code>, <code>.next</code>, <code>.nuxt</code>, <code>.turbo</code>, <code>.yarn</code>) that haven't been modified recently. These are safe to delete &mdash; they'll be recreated automatically when you next build or install.</p>
+            <p class="section-desc">Find and remove old dependency, build, and cache directories (<code>node_modules</code>, <code>vendor</code>, <code>__pycache__</code>, <code>.next</code>, <code>.nuxt</code>, <code>.turbo</code>, <code>.yarn</code>, <code>target</code>, <code>.gradle</code>, <code>dist</code>, <code>.venv</code>, and more) that haven't been modified recently. These are safe to delete &mdash; they'll be recreated automatically when you next build or install.</p>
 
             <div class="stale-controls">
               <div class="stale-toggle-row">

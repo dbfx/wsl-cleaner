@@ -75,9 +75,9 @@ const TASKS = [
   },
   {
     id: 'vscode-server',
-    name: 'Clean VS Code / Cursor Server',
-    desc: 'Removes extension caches and log files from <code>~/.vscode-server</code> and <code>~/.cursor-server</code>. Preserves extensions and settings.',
-    command: 'rm -rf ~/.vscode-server/extensionCache ~/.vscode-server/bin/*/log ~/.vscode-server/data/logs ~/.cursor-server/extensionCache ~/.cursor-server/bin/*/log ~/.cursor-server/data/logs',
+    name: 'Clean VS Code / Cursor / Windsurf Server',
+    desc: 'Removes extension caches and log files from <code>~/.vscode-server</code>, <code>~/.cursor-server</code>, and <code>~/.windsurf-server</code>. Preserves extensions and settings.',
+    command: 'rm -rf ~/.vscode-server/extensionCache ~/.vscode-server/bin/*/log ~/.vscode-server/data/logs ~/.cursor-server/extensionCache ~/.cursor-server/bin/*/log ~/.cursor-server/data/logs ~/.windsurf-server/extensionCache ~/.windsurf-server/bin/*/log ~/.windsurf-server/data/logs',
     asRoot: false,
     requires: null,
   },
@@ -121,6 +121,267 @@ const TASKS = [
     asRoot: false,
     requires: null,
   },
+  {
+    id: 'laravel-clean',
+    name: 'Clean Laravel Logs &amp; Cache',
+    desc: 'Finds Laravel projects under <code>/home</code> and <code>/var/www</code> and removes log files from <code>storage/logs</code> and disk cache from <code>storage/framework/cache/data</code> and <code>storage/framework/views</code>.',
+    command: 'find /home /var/www -maxdepth 5 -name artisan -type f 2>/dev/null | while IFS= read -r artisan; do dir=$(dirname "$artisan"); if [ -d "$dir/storage/logs" ]; then find "$dir/storage/logs" -name "*.log*" -type f -delete 2>/dev/null && echo "Cleaned logs: $dir"; fi; if [ -d "$dir/storage/framework/cache/data" ]; then rm -rf "$dir/storage/framework/cache/data/"* 2>/dev/null && echo "Cleaned cache: $dir"; fi; if [ -d "$dir/storage/framework/views" ]; then find "$dir/storage/framework/views" -name "*.php" -type f -delete 2>/dev/null && echo "Cleaned views: $dir"; fi; done; echo "Laravel cleanup complete"',
+    asRoot: true,
+    requires: null,
+  },
+  {
+    id: 'framework-caches',
+    name: 'Clean Framework Build Caches',
+    desc: 'Finds JS/TS projects and removes regenerable build caches: <code>.next/cache</code>, <code>.angular/cache</code>, <code>node_modules/.cache</code>, <code>.svelte-kit</code>, <code>.tsbuildinfo</code> files, and more.',
+    command: [
+      'echo "Cleaning node_modules/.cache..."',
+      'find /home /var/www -maxdepth 8 -type d -name .cache -path "*/node_modules/.cache" -exec rm -rf {} + 2>/dev/null',
+      'echo "Cleaning .next/cache..."',
+      'find /home /var/www -maxdepth 8 -type d -name cache -path "*/.next/cache" -exec rm -rf {} + 2>/dev/null',
+      'echo "Cleaning .angular/cache..."',
+      'find /home /var/www -maxdepth 8 -type d -name cache -path "*/.angular/cache" -exec rm -rf {} + 2>/dev/null',
+      'echo "Cleaning .svelte-kit..."',
+      'find /home /var/www -maxdepth 8 -type d -name .svelte-kit -exec rm -rf {} + 2>/dev/null',
+      'echo "Cleaning .nuxt caches..."',
+      'find /home /var/www -maxdepth 8 -type d \\( -path "*/.nuxt/.cache" -o -path "*/.nuxt/analyze" \\) -exec rm -rf {} + 2>/dev/null',
+      'echo "Cleaning .parcel-cache..."',
+      'find /home /var/www -maxdepth 8 -type d -name .parcel-cache -exec rm -rf {} + 2>/dev/null',
+      'echo "Cleaning .turbo..."',
+      'find /home /var/www -maxdepth 8 -type d -name .turbo -exec rm -rf {} + 2>/dev/null',
+      'echo "Cleaning .tsbuildinfo files..."',
+      'find /home /var/www -maxdepth 8 -type f -name "*.tsbuildinfo" -delete 2>/dev/null',
+      'echo "Framework build caches cleaned"',
+    ].join('; '),
+    asRoot: true,
+    requires: null,
+  },
+  {
+    id: 'docker-prune',
+    name: 'Clean Docker Dangling Artifacts',
+    desc: 'Removes dangling (untagged) images, unused networks, and stale build cache. All named/tagged images, containers, and volumes are preserved.',
+    command: 'docker image prune -f 2>/dev/null && docker network prune -f 2>/dev/null && docker builder prune -f 2>/dev/null && echo "Docker dangling artifacts cleaned"',
+    asRoot: false,
+    requires: 'docker',
+  },
+  {
+    id: 'pip-cache',
+    name: 'Clean Pip Cache Directory',
+    desc: 'Removes downloaded pip packages from <code>~/.cache/pip</code>.',
+    command: 'rm -rf ~/.cache/pip/*',
+    asRoot: false,
+    requires: null,
+  },
+  {
+    id: 'pnpm-cache',
+    name: 'Clean pnpm Store',
+    desc: 'Prunes the pnpm content-addressable store and removes temp files.',
+    command: 'pnpm store prune 2>/dev/null; rm -rf ~/.local/share/pnpm/store/v3/tmp/* 2>/dev/null; echo "pnpm store pruned"',
+    asRoot: false,
+    requires: 'pnpm',
+  },
+  {
+    id: 'composer-cache',
+    name: 'Clean Composer Cache',
+    desc: 'Clears the PHP Composer download cache from <code>~/.cache/composer</code>.',
+    command: 'composer clear-cache 2>/dev/null || rm -rf ~/.cache/composer/* ~/.composer/cache/* 2>/dev/null; echo "Composer cache cleaned"',
+    asRoot: false,
+    requires: 'composer',
+  },
+  {
+    id: 'maven-cache',
+    name: 'Clean Maven Cache',
+    desc: 'Removes cached Maven artifacts from <code>~/.m2/repository</code>. Can reclaim 5&ndash;15 GB for active Java projects.',
+    command: 'rm -rf ~/.m2/repository/*; echo "Maven cache cleaned"',
+    asRoot: false,
+    requires: 'mvn',
+  },
+  {
+    id: 'gradle-cache',
+    name: 'Clean Gradle Cache',
+    desc: 'Removes Gradle build caches and wrapper distributions from <code>~/.gradle</code>.',
+    command: 'rm -rf ~/.gradle/caches/* ~/.gradle/wrapper/dists/*; echo "Gradle cache cleaned"',
+    asRoot: false,
+    requires: 'gradle',
+  },
+  {
+    id: 'conda-cache',
+    name: 'Clean Conda Cache',
+    desc: 'Removes unused Conda packages, tarballs, and cached downloads.',
+    command: 'conda clean --all -y 2>/dev/null || true; echo "Conda cache cleaned"',
+    asRoot: false,
+    requires: 'conda',
+  },
+  {
+    id: 'gem-cache',
+    name: 'Clean Ruby Gems Cache',
+    desc: 'Runs <code>gem cleanup</code> and removes cached gem files from <code>~/.gem</code>.',
+    command: 'gem cleanup 2>/dev/null; rm -rf ~/.gem/ruby/*/cache/* 2>/dev/null; echo "Gem cache cleaned"',
+    asRoot: false,
+    requires: 'gem',
+  },
+  {
+    id: 'nuget-cache',
+    name: 'Clean NuGet Cache',
+    desc: 'Clears .NET NuGet package caches from <code>~/.nuget</code> and local share.',
+    command: 'dotnet nuget locals all --clear 2>/dev/null || rm -rf ~/.nuget/packages/* ~/.local/share/NuGet/* 2>/dev/null; echo "NuGet cache cleaned"',
+    asRoot: false,
+    requires: 'dotnet',
+  },
+  {
+    id: 'deno-cache',
+    name: 'Clean Deno Cache',
+    desc: 'Removes cached remote modules and compiled files from <code>~/.cache/deno</code> and <code>~/.deno/cache</code>.',
+    command: 'rm -rf ~/.cache/deno/* ~/.deno/cache/* 2>/dev/null; echo "Deno cache cleaned"',
+    asRoot: false,
+    requires: 'deno',
+  },
+  {
+    id: 'bun-cache',
+    name: 'Clean Bun Cache',
+    desc: 'Removes cached packages from <code>~/.bun/install/cache</code>.',
+    command: 'rm -rf ~/.bun/install/cache/* 2>/dev/null; echo "Bun cache cleaned"',
+    asRoot: false,
+    requires: 'bun',
+  },
+  {
+    id: 'dart-cache',
+    name: 'Clean Dart/Flutter Pub Cache',
+    desc: 'Clears the Dart/Flutter package cache from <code>~/.pub-cache</code>.',
+    command: 'rm -rf ~/.pub-cache/hosted/pub.dev/*/.cache 2>/dev/null; dart pub cache clean -f 2>/dev/null || rm -rf ~/.pub-cache/_temp/* 2>/dev/null; echo "Pub cache cleaned"',
+    asRoot: false,
+    requires: 'dart',
+  },
+  {
+    id: 'brew-cache',
+    name: 'Clean Homebrew/Linuxbrew Cache',
+    desc: 'Removes old downloads and formula from <code>~/.cache/Homebrew</code>.',
+    command: 'brew cleanup --prune=all -s 2>/dev/null; rm -rf ~/.cache/Homebrew/* 2>/dev/null; echo "Homebrew cache cleaned"',
+    asRoot: false,
+    requires: 'brew',
+  },
+  {
+    id: 'db-logs',
+    name: 'Clean Database Logs',
+    desc: 'Removes MySQL/MariaDB and PostgreSQL log files from <code>/var/log</code>. Safe to clean on dev instances.',
+    command: 'find /var/log/mysql /var/log/postgresql -type f 2>/dev/null -delete; rm -rf /var/lib/mysql/*.log.* 2>/dev/null; echo "Database logs cleaned"',
+    asRoot: true,
+    requires: null,
+  },
+  {
+    id: 'k8s-cache',
+    name: 'Clean Kubernetes &amp; Helm Cache',
+    desc: 'Removes kubectl API discovery cache from <code>~/.kube/cache</code> and Helm chart cache from <code>~/.cache/helm</code>.',
+    command: 'rm -rf ~/.kube/cache/* ~/.cache/helm/* 2>/dev/null; echo "Kubernetes caches cleaned"',
+    asRoot: false,
+    requires: null,
+  },
+  {
+    id: 'editor-swap',
+    name: 'Clean Vim/Neovim Swap &amp; Undo Files',
+    desc: 'Removes leftover swap, undo, and shada files from Vim and Neovim.',
+    command: 'rm -rf ~/.local/share/nvim/swap/* ~/.local/share/nvim/shada/* ~/.vim/undo/* ~/.vim/swap/* 2>/dev/null; find ~ -maxdepth 1 -name ".*.swp" -delete 2>/dev/null; echo "Editor swap/undo files cleaned"',
+    asRoot: false,
+    requires: null,
+  },
+  {
+    id: 'git-gc',
+    name: 'Compact Git Repositories',
+    desc: 'Finds all git repos under <code>/home</code> and aggressively compacts them: expires reflog entries and repacks objects with maximum compression. Branches, tags, and reachable commits are untouched. Reflog recovery history is lost.',
+    command: 'find /home -maxdepth 6 -type d -name .git 2>/dev/null | while IFS= read -r gitdir; do repo=$(dirname "$gitdir"); echo "Compacting: $repo"; git -C "$repo" reflog expire --expire=now --all 2>/dev/null; git -C "$repo" gc --prune=now --aggressive 2>/dev/null; done; echo "Git compaction complete"',
+    asRoot: true,
+    requires: null,
+  },
+  {
+    id: 'shell-caches',
+    name: 'Clean Shell Completion Caches',
+    desc: 'Removes Zsh completion dumps (<code>~/.zcompdump*</code>), oh-my-zsh cache, and Zsh session files. Rebuilt automatically.',
+    command: 'rm -f ~/.zcompdump* 2>/dev/null; rm -rf ~/.oh-my-zsh/cache/* 2>/dev/null; rm -rf ~/.zsh_sessions/* 2>/dev/null; echo "Shell caches cleaned"',
+    asRoot: false,
+    requires: null,
+  },
+  {
+    id: 'jupyter-runtime',
+    name: 'Clean Jupyter Runtime Files',
+    desc: 'Removes leftover kernel connection files and runtime data from <code>~/.local/share/jupyter/runtime</code>.',
+    command: 'rm -rf ~/.local/share/jupyter/runtime/* 2>/dev/null; echo "Jupyter runtime cleaned"',
+    asRoot: false,
+    requires: null,
+  },
+  {
+    id: 'ccache-clean',
+    name: 'Clean ccache',
+    desc: 'Clears the C/C++ compiler cache from <code>~/.ccache</code>. Can reclaim several GB.',
+    command: 'ccache -C 2>/dev/null || rm -rf ~/.ccache/* 2>/dev/null; echo "ccache cleaned"',
+    asRoot: false,
+    requires: 'ccache',
+  },
+  {
+    id: 'bazel-cache',
+    name: 'Clean Bazel Cache',
+    desc: 'Removes Bazel build cache from <code>~/.cache/bazel</code>. Can be 10+ GB.',
+    command: 'rm -rf ~/.cache/bazel/* 2>/dev/null; echo "Bazel cache cleaned"',
+    asRoot: false,
+    requires: 'bazel',
+  },
+  {
+    id: 'core-dumps',
+    name: 'Clean Core Dumps &amp; Crash Reports',
+    desc: 'Removes crash reports from <code>/var/crash</code> and coredumps from <code>/var/lib/systemd/coredump</code>.',
+    command: 'rm -rf /var/crash/* /var/lib/systemd/coredump/* 2>/dev/null; echo "Core dumps cleaned"',
+    asRoot: true,
+    requires: null,
+  },
+  {
+    id: 'old-kernels',
+    name: 'Remove Old Kernel Packages',
+    desc: 'WSL uses its own kernel, so any installed <code>linux-image</code>, <code>linux-headers</code>, or <code>linux-modules</code> packages are dead weight. (Debian/Ubuntu only)',
+    command: 'dpkg -l "linux-image-*" 2>/dev/null | awk "/^ii/{print \\$2}" | xargs -r apt-get -y purge 2>/dev/null; dpkg -l "linux-headers-*" 2>/dev/null | awk "/^ii/{print \\$2}" | xargs -r apt-get -y purge 2>/dev/null; dpkg -l "linux-modules-*" 2>/dev/null | awk "/^ii/{print \\$2}" | xargs -r apt-get -y purge 2>/dev/null; echo "Old kernel packages removed"',
+    asRoot: true,
+    requires: 'apt',
+  },
+  {
+    id: 'font-cache',
+    name: 'Clean Font Cache',
+    desc: 'Removes font cache files from <code>/var/cache/fontconfig</code> and <code>~/.cache/fontconfig</code>. Rebuilt automatically on demand.',
+    command: 'rm -rf /var/cache/fontconfig/* ~/.cache/fontconfig/* 2>/dev/null; echo "Font cache cleaned"',
+    asRoot: true,
+    requires: null,
+  },
+  {
+    id: 'fstrim',
+    name: 'Filesystem TRIM',
+    desc: 'Runs <code>fstrim</code> to inform the virtual disk which blocks are free. Makes VHDX compaction dramatically more effective. Falls back to zero-filling free space if TRIM is not supported.',
+    command: 'fstrim / 2>/dev/null || (echo "fstrim not supported, zero-filling free space..." && dd if=/dev/zero of=/zero.fill bs=1M 2>/dev/null; rm -f /zero.fill); echo "TRIM complete"',
+    asRoot: true,
+    requires: null,
+  },
+  {
+    id: 'general-cache',
+    name: 'Clean All User Caches',
+    desc: 'Blanket cleanup of the entire <code>~/.cache</code> directory. Catches miscellaneous app caches not covered by other tasks.',
+    command: 'du -sh ~/.cache 2>/dev/null; rm -rf ~/.cache/*; echo "User cache cleaned"',
+    asRoot: false,
+    requires: null,
+    aggressive: true,
+  },
+  {
+    id: 'man-pages',
+    name: 'Remove Man Pages &amp; Docs',
+    desc: 'Deletes offline manual pages, documentation, and info files from <code>/usr/share</code>. Saves 200&ndash;400 MB. Regenerated when packages are reinstalled.',
+    command: 'rm -rf /usr/share/man/* /usr/share/doc/* /usr/share/info/*; echo "Man pages and docs removed"',
+    asRoot: true,
+    requires: null,
+    aggressive: true,
+  },
+  {
+    id: 'locales',
+    name: 'Remove Unused Locales',
+    desc: 'Removes all locale data except English from <code>/usr/share/locale</code>. Saves 100+ MB. Do not use if you need non-English locales.',
+    command: 'find /usr/share/locale -maxdepth 1 -mindepth 1 -type d ! -name "en*" -exec rm -rf {} + 2>/dev/null; echo "Unused locales removed"',
+    asRoot: true,
+    requires: null,
+    aggressive: true,
+  },
 ];
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -134,8 +395,8 @@ let state = {
   currentPage: localStorage.getItem('wsl-cleaner-page') || 'simple',
 };
 
-// Initialise toggles - all on by default
-TASKS.forEach(t => (state.taskEnabled[t.id] = true));
+// Initialise toggles - all on by default, aggressive tasks off by default
+TASKS.forEach(t => (state.taskEnabled[t.id] = !t.aggressive));
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 
@@ -269,6 +530,7 @@ function renderTasks() {
         <div class="task-name">
           ${task.name}
           ${!available ? `<span class="chip-unavailable">${task.requires} not found</span>` : ''}
+          ${task.aggressive ? '<span class="chip-aggressive">aggressive</span>' : ''}
         </div>
         <div class="task-desc">${task.desc}</div>
       </div>
@@ -559,6 +821,16 @@ btnCompact.addEventListener('click', async () => {
   const beforeSize = beforeResult.ok ? beforeResult.size : 0;
   appendLog(`   Before: ${formatBytes(beforeSize)}\n`);
 
+  appendLog('\n── Running filesystem TRIM...\n');
+  const fstrimTask = TASKS.find(t => t.id === 'fstrim');
+  const fstrimRes = await window.wslCleaner.runCleanup({
+    distro: state.distro,
+    taskId: 'compact-fstrim',
+    command: fstrimTask.command,
+    asRoot: fstrimTask.asRoot,
+  });
+  appendLog(fstrimRes.ok ? '   TRIM complete.\n' : '   TRIM finished (may have used zero-fill fallback).\n');
+
   appendLog('\n── Shutting down WSL...\n');
   await window.wslCleaner.runWslCommand({ command: 'wsl --shutdown', taskId: 'compact' });
   appendLog('   WSL shut down.\n');
@@ -652,9 +924,9 @@ btnSimpleGo.addEventListener('click', async () => {
   const beforeResult = await window.wslCleaner.getFileSize(vhdxPath);
   const beforeSize = beforeResult.ok ? beforeResult.size : 0;
 
-  // Step 1: Run all available cleanup tasks
+  // Step 1: Run all available non-aggressive cleanup tasks (fstrim has its own step)
   setSimpleStep('cleanup', 'active');
-  const availableTasks = TASKS.filter(t => !t.requires || state.tools[t.requires]);
+  const availableTasks = TASKS.filter(t => !t.aggressive && t.id !== 'fstrim' && (!t.requires || state.tools[t.requires]));
   let cleanupOk = true;
 
   for (const task of availableTasks) {
@@ -684,6 +956,17 @@ btnSimpleGo.addEventListener('click', async () => {
   } catch {
     setSimpleStep('stale', 'failed');
   }
+
+  // Step 1c: Filesystem TRIM (makes VHDX compaction much more effective)
+  setSimpleStep('fstrim', 'active');
+  const fstrimTask = TASKS.find(t => t.id === 'fstrim');
+  const fstrimResult = await window.wslCleaner.runCleanup({
+    distro: state.distro,
+    taskId: 'fstrim',
+    command: fstrimTask.command,
+    asRoot: fstrimTask.asRoot,
+  });
+  setSimpleStep('fstrim', fstrimResult.ok ? 'done' : 'failed');
 
   // Step 2: Shutdown WSL
   setSimpleStep('shutdown', 'active');
