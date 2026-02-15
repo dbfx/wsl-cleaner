@@ -16,6 +16,7 @@ let state = {
   staleEnabled: true,     // whether stale directory cleanup is enabled
   staleDays: 30,          // stale directory age threshold in days
   compactEnabled: true,   // whether disk compaction runs after cleaning
+  soundEnabled: true,     // whether whoosh sound plays on cleanup completion
   isRunning: false,
   currentPage: localStorage.getItem('wsl-cleaner-page') || 'cleaner',
   diskmapTree: null,       // parsed tree structure from disk scan
@@ -43,6 +44,7 @@ function saveTaskPreferences() {
     _staleEnabled: state.staleEnabled,
     _staleDays: state.staleDays,
     _compactEnabled: state.compactEnabled,
+    _soundEnabled: state.soundEnabled,
   });
 }
 
@@ -94,6 +96,7 @@ const btnCheckUpdates = $('#btn-check-updates');
 const btnInstallUpdate = $('#btn-install-update');
 const btnGitHub = $('#btn-github');
 const updateStatusEl = $('#update-status');
+const soundEnabledCb = $('#sound-enabled-cb');
 
 // Disk Map page
 const diskmapDistroSelect = $('#diskmap-distro');
@@ -115,6 +118,128 @@ $('#btn-close').addEventListener('click', () => window.wslCleaner.close());
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 // formatBytes is loaded from utils.js
+
+/**
+ * Launch a confetti burst over the Cleaner page.
+ * Pure canvas-based — no external libraries.
+ */
+function launchConfetti() {
+  const container = document.getElementById('page-cleaner');
+  if (!container) return;
+  const canvas = document.createElement('canvas');
+  canvas.className = 'confetti-canvas';
+  container.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width = container.offsetWidth;
+    canvas.height = container.offsetHeight;
+  }
+  resize();
+
+  const colors = ['#00d4aa', '#00f0c0', '#2ed573', '#ffa502', '#ff6348', '#a29bfe', '#fd79a8', '#fdcb6e'];
+  const particles = [];
+  const count = 120;
+
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: canvas.width / 2 + (Math.random() - 0.5) * 60,
+      y: canvas.height * 0.45,
+      vx: (Math.random() - 0.5) * 14,
+      vy: -Math.random() * 12 - 4,
+      w: Math.random() * 8 + 4,
+      h: Math.random() * 6 + 3,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.3,
+      opacity: 1,
+    });
+  }
+
+  const gravity = 0.25;
+  const drag = 0.99;
+  const fadeStart = 60; // frame at which particles begin fading
+  let frame = 0;
+  const totalFrames = 120;
+
+  function tick() {
+    frame++;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (const p of particles) {
+      p.vy += gravity;
+      p.vx *= drag;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.rotSpeed;
+      if (frame > fadeStart) {
+        p.opacity = Math.max(0, 1 - (frame - fadeStart) / (totalFrames - fadeStart));
+      }
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.globalAlpha = p.opacity;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    }
+
+    if (frame < totalFrames) {
+      requestAnimationFrame(tick);
+    } else {
+      canvas.remove();
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+/**
+ * Play a short "whoosh" sound using Web Audio API.
+ * No audio files needed — synthesized from filtered noise with exponential decay.
+ */
+function playWhoosh() {
+  if (!state.soundEnabled) return;
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const duration = 0.45;
+    const bufferSize = Math.ceil(ac.sampleRate * duration);
+    const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    // Fill with white noise
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    const source = ac.createBufferSource();
+    source.buffer = buffer;
+
+    // Bandpass filter for a "whoosh" character
+    const filter = ac.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(800, ac.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(200, ac.currentTime + duration);
+    filter.Q.value = 1.2;
+
+    // Gain envelope — quick attack, smooth decay
+    const gain = ac.createGain();
+    gain.gain.setValueAtTime(0.6, ac.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + duration);
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ac.destination);
+
+    source.start();
+    source.stop(ac.currentTime + duration);
+
+    // Clean up after done
+    source.onended = () => ac.close();
+  } catch {
+    // Silently ignore if Web Audio is unavailable
+  }
+}
 
 function showScreen(screen) {
   [errorScreen, loadingScreen, mainScreen].forEach(s => s.classList.add('hidden'));
@@ -382,6 +507,11 @@ function buildTaskCard(task) {
     <span class="task-size-badge hidden" data-size-task="${task.id}"></span>
     <div class="task-status-slot"></div>
   `;
+
+  // Tooltip showing the actual shell command
+  const cmd = Array.isArray(task.command) ? task.command.join('; ') : task.command;
+  const truncated = cmd.length > 300 ? cmd.slice(0, 297) + '...' : cmd;
+  card.title = t('task.commandTooltip', { cmd: truncated });
 
   card.addEventListener('click', () => {
     if (!available || state.isRunning) return;
@@ -962,6 +1092,10 @@ btnSimpleGo.addEventListener('click', async () => {
   simpleSpaceSaved.textContent = saved > 0 ? formatBytes(saved) : t('result.noChange');
   simpleResult.classList.remove('hidden');
 
+  // Celebration effects
+  if (saved > 0) playWhoosh();
+  if (saved > 1_073_741_824) launchConfetti(); // > 1 GB
+
   // Update displayed sizes
   updateVhdxDisplay();
 
@@ -1204,6 +1338,7 @@ const statTotalSaved = $('#stat-total-saved');
 const statTotalCleanups = $('#stat-total-cleanups');
 const statAvgSaved = $('#stat-avg-saved');
 const statLastCleanup = $('#stat-last-cleanup');
+const statStreak = $('#stat-streak');
 const historyList = $('#history-list');
 const historyEmpty = $('#history-empty');
 const btnClearHistory = $('#btn-clear-history');
@@ -1486,6 +1621,45 @@ function renderHistoryList(history) {
   historyList.innerHTML = html;
 }
 
+/**
+ * Compute consecutive weekly cleanup streak.
+ * A "streak week" = at least one cleanup in that ISO week.
+ * Counts backwards from the current week.
+ */
+function computeStreak(history) {
+  if (history.length === 0) return 0;
+
+  // Build a Set of "year-week" strings for all sessions
+  function isoWeekKey(date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    // Thursday in current week decides the year
+    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+    const jan4 = new Date(d.getFullYear(), 0, 4);
+    const week = 1 + Math.round(((d - jan4) / 86400000 - 3 + ((jan4.getDay() + 6) % 7)) / 7);
+    return `${d.getFullYear()}-W${week}`;
+  }
+
+  const weeks = new Set();
+  for (const r of history) {
+    weeks.add(isoWeekKey(r.timestamp));
+  }
+
+  // Walk backwards from current week
+  let streak = 0;
+  const cursor = new Date();
+  for (let i = 0; i < 200; i++) { // cap at ~4 years
+    const key = isoWeekKey(cursor);
+    if (weeks.has(key)) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 7);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
 function updateSummaryCards(history) {
   // Total space saved
   const totalSaved = history.reduce((sum, r) => sum + (r.spaceSaved > 0 ? r.spaceSaved : 0), 0);
@@ -1509,6 +1683,16 @@ function updateSummaryCards(history) {
     statLastCleanup.textContent = formatRelativeDate(last.timestamp);
   } else {
     statLastCleanup.textContent = t('stats.never');
+  }
+
+  // Cleanup streak
+  if (statStreak) {
+    const streak = computeStreak(history);
+    if (streak > 0) {
+      statStreak.textContent = tp('stats.streakWeeks', streak, { count: streak });
+    } else {
+      statStreak.textContent = t('stats.streakNone');
+    }
   }
 }
 
@@ -1606,6 +1790,14 @@ btnGitHub.addEventListener('click', () => {
   window.wslCleaner.openExternal('https://github.com/dbfx/wsl-cleaner');
 });
 
+// Sound toggle
+if (soundEnabledCb) {
+  soundEnabledCb.addEventListener('change', (e) => {
+    state.soundEnabled = e.target.checked;
+    saveTaskPreferences();
+  });
+}
+
 // ── Initialization ───────────────────────────────────────────────────────────
 
 async function init() {
@@ -1645,6 +1837,8 @@ async function init() {
         state.staleDays = Math.max(1, parseInt(value, 10) || 30);
       } else if (key === '_compactEnabled') {
         state.compactEnabled = !!value;
+      } else if (key === '_soundEnabled') {
+        state.soundEnabled = !!value;
       } else if (key in state.taskEnabled) {
         state.taskEnabled[key] = value;
       }
@@ -1656,6 +1850,7 @@ async function init() {
   staleDaysInput.value = state.staleDays;
   staleDaysInput.disabled = !state.staleEnabled;
   compactEnabledCb.checked = state.compactEnabled;
+  if (soundEnabledCb) soundEnabledCb.checked = state.soundEnabled;
 
   // Update Cleaner page button label to match compact setting
   if (btnSimpleGoLabel) {

@@ -325,6 +325,15 @@
                 <div class="stat-value" id="stat-last-cleanup" data-i18n="stats.never">Never</div>
                 <div class="stat-label" data-i18n="stats.lastCleanup">Last Cleanup</div>
               </div>
+              <div class="stat-card">
+                <div class="stat-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 6v6l4 2"/>
+                  </svg>
+                </div>
+                <div class="stat-value" id="stat-streak">--</div>
+                <div class="stat-label" data-i18n="stats.streak">Cleanup Streak</div>
+              </div>
             </div>
 
             <!-- Charts -->
@@ -595,6 +604,15 @@
               <div class="language-selector">
                 <label data-i18n="language.label">Language</label>
                 <select id="locale-select"></select>
+              </div>
+
+              <!-- Sound toggle -->
+              <div class="sound-toggle">
+                <label data-i18n="sound.label">Sound Effects</label>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" id="sound-enabled-cb" checked>
+                  <span class="toggle-slider"></span>
+                </label>
               </div>
 
               <div class="about-footer">

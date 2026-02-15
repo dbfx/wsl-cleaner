@@ -1383,9 +1383,15 @@ a:hover {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
   margin-bottom: 24px;
+}
+
+@media (max-width: 800px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .stat-card {
@@ -2273,4 +2279,32 @@ a:hover {
 .language-selector select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.15);
+}
+
+/* ── Confetti overlay ─────────────────────────────────────────────────────── */
+
+.confetti-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* ── Sound toggle (About page) ────────────────────────────────────────────── */
+
+.sound-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.sound-toggle label:first-child {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
 }
