@@ -135,6 +135,11 @@ ipcMain.on('window-maximize', () => {
   else mainWindow?.maximize();
 });
 ipcMain.on('window-close', () => mainWindow?.close());
+ipcMain.on('app-quit', () => app.quit());
+ipcMain.on('window-reload', () => mainWindow?.webContents.reload());
+ipcMain.on('window-toggle-fullscreen', () => {
+  if (mainWindow) mainWindow.setFullScreen(!mainWindow.isFullScreen());
+});
 
 // ── App info & external URLs ─────────────────────────────────────────────────
 

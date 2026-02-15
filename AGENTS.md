@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-WSL Cleaner is a desktop Electron application for Windows 10/11 that cleans, optimizes, and compacts WSL 2 (Windows Subsystem for Linux) virtual disks. It provides a Simple one-click mode and an Advanced mode with granular control over 40+ cleanup tasks, a stale directory scanner, and VHDX disk compaction via `Optimize-VHD`.
+WSL Cleaner is a desktop Electron application for Windows 10/11 that cleans, optimizes, and compacts WSL 2 (Windows Subsystem for Linux) virtual disks. It provides a Simple one-click mode and an Advanced mode with granular control over 40+ cleanup tasks, a stale directory scanner, VHDX disk compaction via `Optimize-VHD`, and a Health Dashboard with real-time system metrics (memory, CPU, disk, network, ports, DNS, Docker, systemd, GPU, and more).
 
-Target audience: developers running WSL 2 with large virtual disk images who want to reclaim SSD space.
+Target audience: developers running WSL 2 with large virtual disk images who want to reclaim SSD space and monitor their WSL environment.
 
 ## Tech Stack
 

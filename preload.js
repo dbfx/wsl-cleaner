@@ -5,6 +5,9 @@ contextBridge.exposeInMainWorld('wslCleaner', {
   minimize: () => ipcRenderer.send('window-minimize'),
   maximize: () => ipcRenderer.send('window-maximize'),
   close: () => ipcRenderer.send('window-close'),
+  quit: () => ipcRenderer.send('app-quit'),
+  reload: () => ipcRenderer.send('window-reload'),
+  toggleFullscreen: () => ipcRenderer.send('window-toggle-fullscreen'),
 
   // WSL detection
   checkWsl: () => ipcRenderer.invoke('check-wsl'),

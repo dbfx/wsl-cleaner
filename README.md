@@ -83,7 +83,15 @@ Finds old dependency, build, and cache directories that haven't been modified in
 `node_modules`, `vendor`, `__pycache__`, `.next`, `.nuxt`, `.turbo`, `.yarn`, `target`, `.gradle`, `.tox`, `.pytest_cache`, `.mypy_cache`, `dist`, `.parcel-cache`, `.cache`, `.venv`, `venv`, `elm-stuff`, `.terraform`, `.serverless`, `.nx`
 
 ### Health Dashboard
-Real-time system metrics for your WSL distributions. Displays kernel version, uptime, CPU load, memory and swap usage (with visual bars), disk usage, network interface statistics, and top processes — turning the app into a lightweight WSL management tool. Auto-refreshes every 10 seconds while active.
+Real-time system metrics for your WSL distributions, turning the app into a lightweight WSL management tool. Auto-refreshes every 10 seconds while active. Monitors:
+
+- **Core metrics:** kernel version, distro OS, uptime, CPU load, memory/swap usage with visual bars
+- **Disk & I/O:** filesystem usage bar, I/O pressure (some/full)
+- **Networking:** interface RX/TX stats, listening ports table, DNS resolution status (green/red indicator)
+- **Processes:** top 20 by CPU, zombie process detection with count badge
+- **Services:** Docker container counts (running/stopped), systemd state with failed unit listing
+- **System info:** installed package count, GPU/CUDA availability, WSL interop status
+- **WSL config:** reads `.wslconfig` memory/swap limits and displays alongside actual usage
 
 ### Disk Map (Treemap Visualizer)
 Interactive treemap (WinDirStat-style) that shows exactly what's consuming space inside your WSL filesystem. Runs `du` in the background, renders a clickable chart with drill-down navigation and breadcrumbs. Automatically excludes Windows mounts (`/mnt`).

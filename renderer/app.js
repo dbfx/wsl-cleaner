@@ -115,6 +115,62 @@ $('#btn-minimize').addEventListener('click', () => window.wslCleaner.minimize())
 $('#btn-maximize').addEventListener('click', () => window.wslCleaner.maximize());
 $('#btn-close').addEventListener('click', () => window.wslCleaner.close());
 
+// ── App menu (hamburger) ────────────────────────────────────────────────────
+
+const appMenuBtn = $('#btn-app-menu');
+const appMenuDropdown = $('#app-menu-dropdown');
+
+function toggleAppMenu() {
+  appMenuDropdown.classList.toggle('hidden');
+}
+
+function closeAppMenu() {
+  appMenuDropdown.classList.add('hidden');
+}
+
+appMenuBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleAppMenu();
+});
+
+// Close menu when clicking outside
+document.addEventListener('click', (e) => {
+  if (!appMenuDropdown.classList.contains('hidden') && !appMenuDropdown.contains(e.target)) {
+    closeAppMenu();
+  }
+});
+
+// Close menu on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeAppMenu();
+});
+
+$('#menu-reload').addEventListener('click', () => {
+  closeAppMenu();
+  window.wslCleaner.reload();
+});
+
+$('#menu-toggle-fullscreen').addEventListener('click', () => {
+  closeAppMenu();
+  window.wslCleaner.toggleFullscreen();
+});
+
+$('#menu-about').addEventListener('click', () => {
+  closeAppMenu();
+  // Navigate to the About page
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const aboutNav = document.querySelector('.nav-item[data-page="about"]');
+  if (aboutNav) aboutNav.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+  const aboutPage = $('#page-about');
+  if (aboutPage) aboutPage.classList.remove('hidden');
+});
+
+$('#menu-exit').addEventListener('click', () => {
+  closeAppMenu();
+  window.wslCleaner.quit();
+});
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 // formatBytes is loaded from utils.js
@@ -1917,14 +1973,16 @@ async function renderHealthPage() {
   try {
     const result = await window.wslCleaner.getHealthInfo(distro);
     if (!result.ok) {
-      healthErrorMsg.textContent = t('health.error');
+      console.error('[Health] Backend error:', result.error);
+      healthErrorMsg.textContent = t('health.error') + (result.error ? '\n' + result.error : '');
       showHealthState('error');
       return;
     }
     populateHealthData(result.data);
     showHealthState('content');
-  } catch {
-    healthErrorMsg.textContent = t('health.error');
+  } catch (err) {
+    console.error('[Health] Exception:', err);
+    healthErrorMsg.textContent = t('health.error') + '\n' + (err.message || String(err));
     showHealthState('error');
   }
 }
@@ -1990,23 +2048,212 @@ function populateHealthData(data) {
     }
   }
 
-  // Process table
-  const procBody = document.getElementById('health-procs-body');
-  const procEmpty = document.getElementById('health-procs-empty');
-  const procTable = document.getElementById('health-procs-table');
-  procBody.innerHTML = '';
-
-  if (data.processes.length === 0) {
-    procTable.classList.add('hidden');
-    procEmpty.classList.remove('hidden');
+  // ── OS Release banner ──
+  const osBanner = document.getElementById('health-os-banner');
+  const osName = document.getElementById('health-os-name');
+  if (data.osRelease && data.osRelease.name !== 'Unknown') {
+    osName.textContent = data.osRelease.name;
+    osBanner.classList.remove('hidden');
   } else {
-    procTable.classList.remove('hidden');
-    procEmpty.classList.add('hidden');
-    for (const p of data.processes) {
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td>' + p.pid + '</td><td>' + escapeHtml(p.user) + '</td><td>' + p.cpu.toFixed(1) + '</td><td>' + p.mem.toFixed(1) + '</td><td>' + escapeHtml(p.command) + '</td>';
-      procBody.appendChild(tr);
+    osBanner.classList.add('hidden');
+  }
+
+  // ── WSL memory limit (.wslconfig) ──
+  const wslconfigRow = document.getElementById('health-wslconfig-row');
+  const wslconfigText = document.getElementById('health-wslconfig-text');
+  if (data.wslconfig) {
+    const parts = [];
+    if (data.wslconfig.memory) parts.push(t('health.wslMemLimit') + ': ' + data.wslconfig.memory);
+    if (data.wslconfig.swap) parts.push(t('health.wslSwapLimit') + ': ' + data.wslconfig.swap);
+    if (parts.length > 0) {
+      wslconfigText.textContent = parts.join('  |  ');
+      wslconfigRow.classList.remove('hidden');
+    } else {
+      wslconfigRow.classList.add('hidden');
     }
+  } else {
+    wslconfigText.textContent = t('health.noWslConfig');
+    wslconfigRow.classList.remove('hidden');
+  }
+
+  // ── Listening Ports ──
+  const portsBody = document.getElementById('health-ports-body');
+  const portsEmpty = document.getElementById('health-ports-empty');
+  const portsTable = document.getElementById('health-ports-table');
+  portsBody.innerHTML = '';
+
+  if (!data.ports || data.ports.length === 0) {
+    portsTable.classList.add('hidden');
+    portsEmpty.classList.remove('hidden');
+  } else {
+    portsTable.classList.remove('hidden');
+    portsEmpty.classList.add('hidden');
+    for (const port of data.ports) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + escapeHtml(port.proto) + '</td><td>' + escapeHtml(port.addr) + '</td><td>' + escapeHtml(port.process) + '</td>';
+      portsBody.appendChild(tr);
+    }
+  }
+
+  // ── DNS Status ──
+  const dnsStatus = document.getElementById('health-dns-status');
+  const dnsServer = document.getElementById('health-dns-server');
+  if (data.dns) {
+    if (data.dns.ok) {
+      dnsStatus.innerHTML = '<span class="health-status-dot health-status-ok"></span> ' + t('health.dnsOk');
+    } else {
+      dnsStatus.innerHTML = '<span class="health-status-dot health-status-fail"></span> ' + t('health.dnsFail');
+    }
+    dnsServer.textContent = data.dns.server || '--';
+  }
+
+  // ── I/O Pressure ──
+  const ioCard = document.getElementById('health-io-card');
+  const ioEmpty = document.getElementById('health-io-empty');
+  const ioSomeBar = document.getElementById('health-io-some-bar');
+  const ioSomeText = document.getElementById('health-io-some-text');
+  const ioFullBar = document.getElementById('health-io-full-bar');
+  const ioFullText = document.getElementById('health-io-full-text');
+
+  if (data.ioPressure) {
+    ioEmpty.classList.add('hidden');
+    ioSomeBar.parentElement.parentElement.style.display = '';
+    ioFullBar.parentElement.parentElement.style.display = '';
+
+    const somePct = Math.min(100, data.ioPressure.some10);
+    ioSomeBar.style.width = somePct + '%';
+    ioSomeBar.className = 'health-bar-fill' + (somePct > 50 ? ' danger' : somePct > 20 ? ' warning' : '');
+    ioSomeText.textContent = data.ioPressure.some10.toFixed(1) + '% (10s) / ' + data.ioPressure.some60.toFixed(1) + '% (60s)';
+
+    const fullPct = Math.min(100, data.ioPressure.full10);
+    ioFullBar.style.width = fullPct + '%';
+    ioFullBar.className = 'health-bar-fill' + (fullPct > 50 ? ' danger' : fullPct > 20 ? ' warning' : '');
+    ioFullText.textContent = data.ioPressure.full10.toFixed(1) + '% (10s) / ' + data.ioPressure.full60.toFixed(1) + '% (60s)';
+  } else {
+    ioSomeBar.parentElement.parentElement.style.display = 'none';
+    ioFullBar.parentElement.parentElement.style.display = 'none';
+    ioEmpty.classList.remove('hidden');
+  }
+
+  // ── Zombies ──
+  const zombieBadge = document.getElementById('health-zombie-badge');
+  const zombieBody = document.getElementById('health-zombie-body');
+  const zombieTable = document.getElementById('health-zombie-table');
+  const zombieEmpty = document.getElementById('health-zombie-empty');
+  zombieBody.innerHTML = '';
+  zombieBadge.textContent = data.zombies ? data.zombies.length : 0;
+  zombieBadge.className = 'health-badge' + ((data.zombies && data.zombies.length > 0) ? ' health-badge-warn' : '');
+
+  if (!data.zombies || data.zombies.length === 0) {
+    zombieTable.classList.add('hidden');
+    zombieEmpty.classList.remove('hidden');
+  } else {
+    zombieTable.classList.remove('hidden');
+    zombieEmpty.classList.add('hidden');
+    for (const z of data.zombies) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + z.pid + '</td><td>' + escapeHtml(z.user) + '</td><td>' + escapeHtml(z.command) + '</td>';
+      zombieBody.appendChild(tr);
+    }
+  }
+
+  // ── Docker ──
+  const dockerCard = document.getElementById('health-docker-card');
+  if (data.docker) {
+    dockerCard.classList.remove('hidden');
+    document.getElementById('health-docker-running').textContent = data.docker.running;
+    document.getElementById('health-docker-stopped').textContent = data.docker.stopped;
+    document.getElementById('health-docker-total').textContent = data.docker.total;
+  } else {
+    dockerCard.classList.add('hidden');
+  }
+
+  // ── Systemd ──
+  const systemdCard = document.getElementById('health-systemd-card');
+  if (data.systemd) {
+    systemdCard.classList.remove('hidden');
+    const badge = document.getElementById('health-systemd-badge');
+    const summaryEl = document.getElementById('health-systemd-summary');
+    const failedSection = document.getElementById('health-systemd-failed');
+    const failedList = document.getElementById('health-systemd-failed-list');
+
+    const isOk = data.systemd.state === 'running';
+    const stateClass = isOk ? 'health-status-ok' : 'health-status-fail';
+    badge.textContent = data.systemd.state;
+    badge.className = 'health-badge' + (isOk ? '' : ' health-badge-warn');
+
+    // Summary explanation
+    const ignoredNote = data.systemd.ignoredCount > 0
+      ? ' ' + t('health.systemdIgnored', { count: data.systemd.ignoredCount })
+      : '';
+    if (isOk) {
+      summaryEl.innerHTML = '<span class="health-status-dot health-status-ok"></span> ' +
+        t('health.systemdRunning') + ignoredNote;
+    } else if (data.systemd.state === 'degraded') {
+      summaryEl.innerHTML = '<span class="health-status-dot health-status-fail"></span> ' +
+        t('health.systemdDegraded', { count: data.systemd.failedUnits.length }) + ignoredNote;
+    } else {
+      summaryEl.innerHTML = '<span class="health-status-dot health-status-fail"></span> ' +
+        t('health.systemdState') + ': ' + escapeHtml(data.systemd.state) + ignoredNote;
+    }
+
+    if (data.systemd.failedUnits.length > 0) {
+      failedSection.classList.remove('hidden');
+      failedList.innerHTML = data.systemd.failedUnits.map(u => {
+        let html = '<div class="health-failed-unit-card">';
+        html += '<div class="health-failed-unit-header">';
+        html += '<span class="health-status-dot health-status-fail"></span> ';
+        html += '<strong>' + escapeHtml(u.name) + '</strong>';
+        html += '</div>';
+        if (u.desc) {
+          html += '<div class="health-failed-unit-desc">' + escapeHtml(u.desc) + '</div>';
+        }
+        // Detail row: result, exit code, when
+        const details = [];
+        if (u.result && u.result !== 'success') {
+          details.push(t('health.systemdResult') + ': <code>' + escapeHtml(u.result) + '</code>');
+        }
+        if (u.exitCode && u.exitCode !== '0') {
+          details.push(t('health.systemdExitCode') + ': <code>' + escapeHtml(u.exitCode) + '</code>');
+        }
+        if (u.failedAt) {
+          details.push(t('health.systemdFailedAt') + ': ' + escapeHtml(u.failedAt));
+        }
+        if (details.length > 0) {
+          html += '<div class="health-failed-unit-details">' + details.join(' &nbsp;·&nbsp; ') + '</div>';
+        }
+        // Actionable hint
+        if (u.name) {
+          html += '<div class="health-failed-unit-hint">' +
+            t('health.systemdHint', { unit: u.name }) + '</div>';
+        }
+        html += '</div>';
+        return html;
+      }).join('');
+    } else {
+      failedSection.classList.add('hidden');
+    }
+  } else {
+    systemdCard.classList.add('hidden');
+  }
+
+  // ── System Info ──
+  const packagesEl = document.getElementById('health-packages');
+  packagesEl.textContent = data.packages != null ? data.packages.toLocaleString() : '--';
+
+  const gpuEl = document.getElementById('health-gpu');
+  if (data.gpu && data.gpu.available) {
+    const gpuText = data.gpu.name + (data.gpu.vram ? ' (' + data.gpu.vram + ')' : '');
+    gpuEl.innerHTML = '<span class="health-status-dot health-status-ok"></span> ' + escapeHtml(gpuText);
+  } else {
+    gpuEl.innerHTML = '<span class="health-status-dot health-status-fail"></span> ' + t('health.gpuNone');
+  }
+
+  const interopEl = document.getElementById('health-interop');
+  if (data.interop) {
+    interopEl.innerHTML = '<span class="health-status-dot health-status-ok"></span> ' + t('health.interopOn');
+  } else {
+    interopEl.innerHTML = '<span class="health-status-dot health-status-fail"></span> ' + t('health.interopOff');
   }
 }
 
@@ -2037,8 +2284,8 @@ async function refreshHealthSilent() {
       populateHealthData(result.data);
       showHealthState('content');
     }
-  } catch {
-    // Silently ignore auto-refresh errors
+  } catch (err) {
+    console.error('[Health] Auto-refresh error:', err);
   }
 }
 

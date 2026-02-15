@@ -86,8 +86,96 @@ a:hover {
   padding-left: 6px;
 }
 
+.titlebar-menu-wrap {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-menu-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background var(--transition), color var(--transition);
+}
+.titlebar-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.titlebar-menu-btn:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .titlebar-icon {
   color: var(--accent);
+}
+
+/* ── App menu dropdown ──────────────────────────────────────────────────── */
+
+.app-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 200px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  animation: menuFadeIn 0.12s ease-out;
+  backdrop-filter: none;
+}
+
+@keyframes menuFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.app-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--transition);
+  text-align: left;
+}
+.app-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.app-menu-item svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.app-menu-item:hover svg {
+  color: var(--text-secondary);
+}
+
+.app-menu-item-danger {
+  color: var(--danger);
+}
+.app-menu-item-danger svg {
+  color: var(--danger) !important;
+}
+.app-menu-item-danger:hover {
+  background: rgba(255, 75, 87, 0.1);
+}
+
+.app-menu-separator {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
 }
 
 .titlebar-title {
@@ -2235,11 +2323,192 @@ a:hover {
   color: var(--text-secondary);
   font-size: 14px;
   max-width: 400px;
+  white-space: pre-line;
+}
+
+.health-info-banner {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 18px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.health-os-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.health-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.health-status-ok {
+  background: var(--success);
+  box-shadow: 0 0 6px rgba(46, 213, 115, 0.4);
+}
+
+.health-status-fail {
+  background: var(--danger);
+  box-shadow: 0 0 6px rgba(255, 71, 87, 0.4);
+}
+
+.health-kv-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+}
+.health-kv-row + .health-kv-row {
+  border-top: 1px solid rgba(42, 42, 69, 0.3);
+}
+
+.health-kv-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.health-kv-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.health-kv-value.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 8px;
+  font-family: var(--font-mono);
+}
+
+.health-badge-warn {
+  background: var(--danger-dim);
+  color: var(--danger);
+}
+
+.health-badge-inline {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.health-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.health-status-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.health-wslconfig-note {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: rgba(0, 212, 170, 0.06);
+  border: 1px solid rgba(0, 212, 170, 0.15);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.health-failed-list {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.health-systemd-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.health-failed-unit-card {
+  background: var(--surface-2, rgba(255,255,255,0.03));
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--danger);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.health-failed-unit-header {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.health-failed-unit-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  padding-left: 16px;
+}
+
+.health-failed-unit-details {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  padding-left: 16px;
+}
+.health-failed-unit-details code {
+  background: rgba(255,255,255,0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--danger);
+}
+
+.health-failed-unit-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  padding-left: 16px;
+  font-style: italic;
+}
+.health-failed-unit-hint code {
+  background: rgba(255,255,255,0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--accent);
+  font-style: normal;
 }
 
 @media (max-width: 900px) {
   .health-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .health-status-grid {
+    grid-template-columns: 1fr;
+  }
+  .health-status-grid-2 {
+    grid-template-columns: 1fr;
   }
 }
 

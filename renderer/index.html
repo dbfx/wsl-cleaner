@@ -11,9 +11,41 @@
   <!-- Custom title bar -->
   <header id="titlebar">
     <div class="titlebar-drag">
-      <svg class="titlebar-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M3 6h18M3 12h18M3 18h18"/>
-      </svg>
+      <div class="titlebar-menu-wrap">
+        <button id="btn-app-menu" class="titlebar-menu-btn" aria-label="Menu" data-i18n-aria="menu.title">
+          <svg class="titlebar-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 6h18M3 12h18M3 18h18"/>
+          </svg>
+        </button>
+        <div id="app-menu-dropdown" class="app-menu-dropdown hidden">
+          <button class="app-menu-item" id="menu-reload">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            </svg>
+            <span data-i18n="menu.reload">Reload Window</span>
+          </button>
+          <button class="app-menu-item" id="menu-toggle-fullscreen">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15,3 21,3 21,9"/><polyline points="9,21 3,21 3,15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+            </svg>
+            <span data-i18n="menu.fullscreen">Toggle Fullscreen</span>
+          </button>
+          <div class="app-menu-separator"></div>
+          <button class="app-menu-item" id="menu-about">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <span data-i18n="menu.about">About</span>
+          </button>
+          <div class="app-menu-separator"></div>
+          <button class="app-menu-item app-menu-item-danger" id="menu-exit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            <span data-i18n="menu.exit">Exit</span>
+          </button>
+        </div>
+      </div>
       <span class="titlebar-title" data-i18n="app.title">WSL Cleaner</span>
     </div>
     <div class="titlebar-controls">
@@ -434,6 +466,11 @@
 
             <!-- Summary cards -->
             <div id="health-content" class="hidden">
+              <!-- Distro OS info banner -->
+              <div id="health-os-banner" class="health-info-banner">
+                <span id="health-os-name" class="health-os-name">--</span>
+              </div>
+
               <div class="health-grid">
                 <div class="health-card">
                   <div class="health-card-icon">
@@ -487,6 +524,9 @@
                     <div class="health-bar"><div class="health-bar-fill" id="health-swap-bar"></div></div>
                     <span class="health-bar-value" id="health-swap-text">--</span>
                   </div>
+                  <div id="health-wslconfig-row" class="health-wslconfig-note hidden">
+                    <span id="health-wslconfig-text"></span>
+                  </div>
                 </div>
               </div>
 
@@ -520,23 +560,134 @@
                 </div>
               </div>
 
-              <!-- Processes -->
-              <div class="health-detail-card">
-                <div class="health-detail-header" data-i18n="health.processes">Top Processes</div>
+              <!-- Quick Status Row: DNS, I/O Pressure, Zombies -->
+              <div class="health-status-grid">
+                <!-- DNS Status -->
+                <div class="health-detail-card">
+                  <div class="health-detail-header" data-i18n="health.dns">DNS</div>
+                  <div class="health-detail-body">
+                    <div class="health-kv-row">
+                      <span class="health-kv-label" data-i18n="health.dnsStatus">Status</span>
+                      <span class="health-kv-value" id="health-dns-status">--</span>
+                    </div>
+                    <div class="health-kv-row">
+                      <span class="health-kv-label" data-i18n="health.dnsServer">Server</span>
+                      <span class="health-kv-value mono" id="health-dns-server">--</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- I/O Pressure -->
+                <div class="health-detail-card" id="health-io-card">
+                  <div class="health-detail-header" data-i18n="health.ioPressure">I/O Pressure</div>
+                  <div class="health-detail-body">
+                    <div class="health-bar-row">
+                      <span class="health-bar-label" data-i18n="health.some">Some</span>
+                      <div class="health-bar"><div class="health-bar-fill" id="health-io-some-bar"></div></div>
+                      <span class="health-bar-value" id="health-io-some-text">--</span>
+                    </div>
+                    <div class="health-bar-row">
+                      <span class="health-bar-label" data-i18n="health.full">Full</span>
+                      <div class="health-bar"><div class="health-bar-fill" id="health-io-full-bar"></div></div>
+                      <span class="health-bar-value" id="health-io-full-text">--</span>
+                    </div>
+                    <div id="health-io-empty" class="health-table-empty hidden" data-i18n="health.noIoPressure">I/O pressure data not available.</div>
+                  </div>
+                </div>
+
+                <!-- Zombies -->
+                <div class="health-detail-card">
+                  <div class="health-detail-header">
+                    <span data-i18n="health.zombies">Zombie Processes</span>
+                    <span class="health-badge" id="health-zombie-badge">0</span>
+                  </div>
+                  <div class="health-detail-body">
+                    <table class="health-table" id="health-zombie-table">
+                      <thead>
+                        <tr>
+                          <th data-i18n="health.pid">PID</th>
+                          <th data-i18n="health.user">User</th>
+                          <th data-i18n="health.command">Command</th>
+                        </tr>
+                      </thead>
+                      <tbody id="health-zombie-body"></tbody>
+                    </table>
+                    <div id="health-zombie-empty" class="health-table-empty" data-i18n="health.noZombies">No zombie processes.</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Services Row: Docker, Systemd -->
+              <div class="health-status-grid health-status-grid-2">
+                <!-- Docker -->
+                <div class="health-detail-card" id="health-docker-card">
+                  <div class="health-detail-header" data-i18n="health.docker">Docker</div>
+                  <div class="health-detail-body">
+                    <div class="health-kv-row">
+                      <span class="health-kv-label" data-i18n="health.dockerRunning">Running</span>
+                      <span class="health-kv-value health-badge-inline" id="health-docker-running">0</span>
+                    </div>
+                    <div class="health-kv-row">
+                      <span class="health-kv-label" data-i18n="health.dockerStopped">Stopped</span>
+                      <span class="health-kv-value" id="health-docker-stopped">0</span>
+                    </div>
+                    <div class="health-kv-row">
+                      <span class="health-kv-label" data-i18n="health.dockerTotal">Total</span>
+                      <span class="health-kv-value" id="health-docker-total">0</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Systemd (full-width) -->
+              <div class="health-detail-card" id="health-systemd-card">
+                <div class="health-detail-header">
+                  <span data-i18n="health.systemd">Systemd</span>
+                  <span class="health-badge" id="health-systemd-badge">--</span>
+                </div>
                 <div class="health-detail-body">
-                  <table class="health-table" id="health-procs-table">
+                  <div id="health-systemd-summary" class="health-systemd-summary"></div>
+                  <div id="health-systemd-failed" class="hidden">
+                    <div class="health-kv-label" style="margin-top: 10px;" data-i18n="health.failedUnits">Failed Units</div>
+                    <div id="health-systemd-failed-list" class="health-failed-list"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Listening Ports -->
+              <div class="health-detail-card" id="health-ports-card">
+                <div class="health-detail-header" data-i18n="health.ports">Listening Ports</div>
+                <div class="health-detail-body">
+                  <table class="health-table" id="health-ports-table">
                     <thead>
                       <tr>
-                        <th data-i18n="health.pid">PID</th>
-                        <th data-i18n="health.user">User</th>
-                        <th data-i18n="health.cpu">CPU%</th>
-                        <th data-i18n="health.mem">Mem%</th>
-                        <th data-i18n="health.command">Command</th>
+                        <th data-i18n="health.proto">Proto</th>
+                        <th data-i18n="health.address">Address</th>
+                        <th data-i18n="health.portProcess">Process</th>
                       </tr>
                     </thead>
-                    <tbody id="health-procs-body"></tbody>
+                    <tbody id="health-ports-body"></tbody>
                   </table>
-                  <div id="health-procs-empty" class="health-table-empty hidden" data-i18n="health.noProcesses">No process data available.</div>
+                  <div id="health-ports-empty" class="health-table-empty hidden" data-i18n="health.noPorts">No listening ports.</div>
+                </div>
+              </div>
+
+              <!-- System Info -->
+              <div class="health-detail-card">
+                <div class="health-detail-header" data-i18n="health.systemInfo">System Info</div>
+                <div class="health-detail-body">
+                  <div class="health-kv-row">
+                    <span class="health-kv-label" data-i18n="health.packages">Installed Packages</span>
+                    <span class="health-kv-value mono" id="health-packages">--</span>
+                  </div>
+                  <div class="health-kv-row">
+                    <span class="health-kv-label" data-i18n="health.gpu">GPU</span>
+                    <span class="health-kv-value" id="health-gpu">--</span>
+                  </div>
+                  <div class="health-kv-row">
+                    <span class="health-kv-label" data-i18n="health.interop">WSL Interop</span>
+                    <span class="health-kv-value" id="health-interop">--</span>
+                  </div>
                 </div>
               </div>
             </div>
