@@ -36,9 +36,9 @@ const TASKS = [
   {
     id: 'caches',
     name: 'Clean User Caches',
-    desc: 'Clears npm cache, pip cache, and browser caches (Mozilla, Chrome) from your home directory.',
-    command: 'rm -rf ~/.npm; (pip cache purge 2>/dev/null || pip3 cache purge 2>/dev/null || true); rm -rf ~/.cache/mozilla/* ~/.cache/google-chrome/*',
-    asRoot: false,
+    desc: 'Clears npm cache, pip cache, and browser caches (Mozilla, Chrome) from your home directory and <code>/root</code>.',
+    command: 'for d in /home/* /root; do [ -d "$d" ] && rm -rf "$d/.npm" "$d/.cache/mozilla" "$d/.cache/google-chrome" "$d/.cache/pip" "$d/.cache/pipx" "$d/.cache/composer" 2>/dev/null; done; (pip cache purge 2>/dev/null || pip3 cache purge 2>/dev/null || true); echo "User caches cleaned"',
+    asRoot: true,
     requires: null,
   },
   {
@@ -924,7 +924,27 @@ btnSimpleGo.addEventListener('click', async () => {
   const beforeResult = await window.wslCleaner.getFileSize(vhdxPath);
   const beforeSize = beforeResult.ok ? beforeResult.size : 0;
 
-  // Step 1: Run all available non-aggressive cleanup tasks (fstrim has its own step)
+  // Step 1: Scan stale directories FIRST (before cleanup tasks modify mtimes)
+  setSimpleStep('stale', 'active');
+  let stalePaths = [];
+  try {
+    const staleDirsFound = await window.wslCleaner.scanStaleDirs({ distro: state.distro, days: 30 });
+    stalePaths = staleDirsFound.map(d => d.path);
+  } catch { /* scan failed, continue anyway */ }
+
+  // Delete stale directories now
+  if (stalePaths.length > 0) {
+    try {
+      await window.wslCleaner.deleteStaleDirs({
+        distro: state.distro,
+        paths: stalePaths,
+        taskId: 'simple-stale',
+      });
+    } catch { /* ignore deletion errors */ }
+  }
+  setSimpleStep('stale', 'done');
+
+  // Step 2: Run all available non-aggressive cleanup tasks (fstrim has its own step)
   setSimpleStep('cleanup', 'active');
   const availableTasks = TASKS.filter(t => !t.aggressive && t.id !== 'fstrim' && (!t.requires || state.tools[t.requires]));
   let cleanupOk = true;
@@ -939,23 +959,6 @@ btnSimpleGo.addEventListener('click', async () => {
     if (!result.ok) cleanupOk = false;
   }
   setSimpleStep('cleanup', cleanupOk ? 'done' : 'failed');
-
-  // Step 1b: Scan and delete stale directories
-  setSimpleStep('stale', 'active');
-  try {
-    const staleDirsFound = await window.wslCleaner.scanStaleDirs({ distro: state.distro, days: 30 });
-    if (staleDirsFound.length > 0) {
-      const stalePaths = staleDirsFound.map(d => d.path);
-      await window.wslCleaner.deleteStaleDirs({
-        distro: state.distro,
-        paths: stalePaths,
-        taskId: 'simple-stale',
-      });
-    }
-    setSimpleStep('stale', 'done');
-  } catch {
-    setSimpleStep('stale', 'failed');
-  }
 
   // Step 1c: Filesystem TRIM (makes VHDX compaction much more effective)
   setSimpleStep('fstrim', 'active');
