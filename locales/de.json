@@ -256,6 +256,7 @@
   "health.systemd": "Systemd",
   "health.systemdState": "Zustand",
   "health.systemdRunning": "Alle Dienste laufen normal.",
+  "health.systemdIgnored": "({count} bekannte WSL-Probleme verborgen)",
   "health.systemdDegraded": "System ist degradiert – {count} Dienst(e) sind fehlgeschlagen. Dies ist in WSL üblich und normalerweise harmlos.",
   "health.failedUnits": "Fehlgeschlagene Einheiten",
   "health.systemdResult": "Ergebnis",

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
@@ -259,6 +259,42 @@ ipcMain.handle('get-task-preferences', () => {
 ipcMain.handle('save-task-preferences', (_event, prefs) => {
   preferences.savePreferences(prefs);
   return { ok: true };
+});
+
+// ── Distro management ─────────────────────────────────────────────────────────
+
+ipcMain.handle('export-distro', async (event, { distro, targetPath, taskId }) => {
+  const onOutput = (data) => mainWindow?.webContents.send('task-output', data);
+  return wslOps.exportDistro({ distro, targetPath, taskId, onOutput });
+});
+
+ipcMain.handle('import-distro', async (event, { name, installLocation, tarPath, taskId }) => {
+  const onOutput = (data) => mainWindow?.webContents.send('task-output', data);
+  return wslOps.importDistro({ name, installLocation, tarPath, taskId, onOutput });
+});
+
+ipcMain.handle('clone-distro', async (event, { distro, newName, installLocation, taskId }) => {
+  const onOutput = (data) => mainWindow?.webContents.send('task-output', data);
+  return wslOps.cloneDistro({ distro, newName, installLocation, taskId, onOutput });
+});
+
+ipcMain.handle('restart-distro', async (event, { distro, taskId }) => {
+  const onOutput = (data) => mainWindow?.webContents.send('task-output', data);
+  return wslOps.restartDistro({ distro, taskId, onOutput });
+});
+
+ipcMain.handle('get-distro-comparison', async (_event, distros) => {
+  return wslOps.getDistroComparison(distros);
+});
+
+ipcMain.handle('show-save-dialog', async (_event, opts) => {
+  const result = await dialog.showSaveDialog(mainWindow, opts);
+  return result;
+});
+
+ipcMain.handle('show-open-dialog', async (_event, opts) => {
+  const result = await dialog.showOpenDialog(mainWindow, opts);
+  return result;
 });
 
 // ── i18n / Locale data ───────────────────────────────────────────────────────

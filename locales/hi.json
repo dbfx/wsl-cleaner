@@ -256,6 +256,7 @@
   "health.systemd": "Systemd",
   "health.systemdState": "स्थिति",
   "health.systemdRunning": "सभी सेवाएँ सामान्य रूप से चल रही हैं।",
+  "health.systemdIgnored": "({count} ज्ञात WSL समस्या(ओं) को छिपाया गया)",
   "health.systemdDegraded": "सिस्टम कमजोर है — {count} सेवा(एँ) विफल हो गई हैं। यह WSL में सामान्य है और आमतौर पर हानिकारक नहीं है।",
   "health.failedUnits": "विफल इकाइयाँ",
   "health.systemdResult": "परिणाम",

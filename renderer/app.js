@@ -57,6 +57,8 @@ const errorScreen = $('#error-screen');
 const loadingScreen = $('#loading-screen');
 const mainScreen = $('#main-screen');
 const errorMessage = $('#error-message');
+const splashEl = $('#splash');
+const detectingEl = $('#detecting');
 const statusText = $('#status-text');
 const distroPickerBtn = $('#distro-picker-btn');
 const distroPickerLabel = $('#distro-picker-label');
@@ -89,6 +91,13 @@ const simpleEstimate = $('#simple-estimate');
 const btnSimpleEstimate = $('#btn-simple-estimate');
 const simpleEstimateResult = $('#simple-estimate-result');
 const simpleEstimateTotal = $('#simple-estimate-total');
+
+// Progress tracking (Cleaner page)
+const simpleProgressFill = $('#simple-progress-fill');
+const simpleStepCounter = $('#simple-step-counter');
+const simpleElapsed = $('#simple-elapsed');
+const progressHeader = simpleSteps ? simpleSteps.querySelector('.progress-header') : null;
+let elapsedInterval = null;
 
 // About page
 const aboutVersion = $('#about-version');
@@ -357,6 +366,14 @@ function switchPage(pageName) {
     startHealthAutoRefresh();
   } else {
     stopHealthAutoRefresh();
+  }
+
+  // Render distros page and start auto-refresh
+  if (pageName === 'distros') {
+    renderDistrosPage();
+    startDistrosAutoRefresh();
+  } else {
+    stopDistrosAutoRefresh();
   }
 }
 
@@ -663,8 +680,11 @@ function renderTasks() {
     const body = document.createElement('div');
     body.className = 'category-body' + (collapsed ? ' collapsed' : '');
 
+    let cardIndex = 0;
     for (const task of catTasks) {
-      body.appendChild(buildTaskCard(task));
+      const card = buildTaskCard(task);
+      card.style.setProperty('--card-index', cardIndex++);
+      body.appendChild(card);
     }
 
     // Toggle collapse on header click
@@ -968,6 +988,67 @@ function setSimpleStep(stepName, status) {
   } else {
     iconSlot.innerHTML = '';
   }
+
+  updateSimpleProgress();
+}
+
+/** Count visible steps and update the progress bar, step counter, and elapsed. */
+function updateSimpleProgress() {
+  const allSteps = simpleSteps.querySelectorAll('.step-item');
+  let total = 0, done = 0, activeIdx = -1;
+  let idx = 0;
+  allSteps.forEach(item => {
+    if (item.style.display === 'none') return;
+    total++;
+    if (item.classList.contains('done') || item.classList.contains('failed')) done++;
+    if (item.classList.contains('active')) activeIdx = idx;
+    idx++;
+  });
+
+  // Progress bar: done steps fill proportionally; active step counts as half
+  const hasActive = activeIdx >= 0;
+  const progress = total > 0 ? ((done + (hasActive ? 0.5 : 0)) / total) * 100 : 0;
+  if (simpleProgressFill) simpleProgressFill.style.width = Math.min(progress, 100) + '%';
+
+  // Step counter
+  const current = done + (hasActive ? 1 : 0);
+  if (simpleStepCounter) {
+    simpleStepCounter.textContent = t('simple.stepOf', { current, total });
+  }
+}
+
+/** Render numbered circles for all visible pending step items. */
+function renderStepNumbers() {
+  const allSteps = simpleSteps.querySelectorAll('.step-item');
+  let visIdx = 0;
+  allSteps.forEach(item => {
+    if (item.style.display === 'none') return;
+    visIdx++;
+    const iconSlot = item.querySelector('.step-icon-slot');
+    if (!item.classList.contains('active') && !item.classList.contains('done') && !item.classList.contains('failed')) {
+      iconSlot.innerHTML = `<div class="step-number">${visIdx}</div>`;
+    }
+  });
+}
+
+/** Start the elapsed timer. */
+function startElapsedTimer() {
+  const start = Date.now();
+  if (simpleElapsed) simpleElapsed.textContent = '0:00';
+  elapsedInterval = setInterval(() => {
+    const secs = Math.floor((Date.now() - start) / 1000);
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    if (simpleElapsed) simpleElapsed.textContent = m + ':' + String(s).padStart(2, '0');
+  }, 1000);
+}
+
+/** Stop the elapsed timer. */
+function stopElapsedTimer() {
+  if (elapsedInterval) {
+    clearInterval(elapsedInterval);
+    elapsedInterval = null;
+  }
 }
 
 function resetSimpleSteps() {
@@ -975,6 +1056,11 @@ function resetSimpleSteps() {
     item.classList.remove('active', 'done', 'failed');
     item.querySelector('.step-icon-slot').innerHTML = '';
   });
+  // Reset progress UI
+  if (simpleProgressFill) simpleProgressFill.style.width = '0%';
+  if (simpleStepCounter) simpleStepCounter.textContent = '';
+  if (simpleElapsed) simpleElapsed.textContent = '0:00';
+  stopElapsedTimer();
 }
 
 /** Show/hide step items that only apply to the full (non-clean-only) flow. */
@@ -1013,11 +1099,18 @@ btnSimpleGo.addEventListener('click', async () => {
   resetSimpleSteps();
   applyCleanOnlyVisibility(!doCompact);
 
-  // Hide the disclaimer, button, and estimate once cleanup starts
+  // Hide the disclaimer, button, estimate, and hero once cleanup starts
   const disclaimer = document.querySelector('.simple-disclaimer');
   if (disclaimer) disclaimer.classList.add('hidden');
   btnSimpleGo.classList.add('hidden');
   simpleEstimate.classList.add('hidden');
+  const simpleHero = document.querySelector('.simple-hero');
+  if (simpleHero) simpleHero.classList.add('hidden');
+
+  // Render numbered pending icons and start elapsed timer
+  renderStepNumbers();
+  startElapsedTimer();
+  updateSimpleProgress();
 
   const simpleStart = Date.now();
   let simpleTotalRun = 0, simpleTotalOk = 0, simpleTotalFail = 0;
@@ -1134,6 +1227,11 @@ btnSimpleGo.addEventListener('click', async () => {
     setSimpleStep('restart', 'done');
   }
 
+  // Finalize progress UI
+  stopElapsedTimer();
+  if (simpleProgressFill) simpleProgressFill.style.width = '100%';
+  if (progressHeader) progressHeader.querySelector('.orbital-spinner')?.classList.add('hidden');
+
   // Measure total VHDX size after
   let totalAfter = 0;
   for (const vf of state.vhdxFiles) {
@@ -1175,6 +1273,14 @@ btnSimpleGo.addEventListener('click', async () => {
   btnSimpleGo.classList.remove('hidden');
   simpleEstimate.classList.remove('hidden');
   distroPickerBtn.disabled = false;
+
+  // Restore hero and orbital spinner for next run
+  const simpleHeroEl = document.querySelector('.simple-hero');
+  if (simpleHeroEl) simpleHeroEl.classList.remove('hidden');
+  if (progressHeader) {
+    const spinner = progressHeader.querySelector('.orbital-spinner');
+    if (spinner) spinner.classList.remove('hidden');
+  }
 });
 
 // ── Disk Map page ────────────────────────────────────────────────────────────
@@ -1871,7 +1977,23 @@ async function init() {
     aboutVersion.textContent = `v${version}`;
   } catch { /* keep default */ }
 
-  const wslCheck = await window.wslCleaner.checkWsl();
+  // Start WSL check immediately (runs in parallel with the splash animation)
+  const wslCheckPromise = window.wslCleaner.checkWsl();
+
+  // Splash phase: enforce minimum display time so users see the full animation
+  await new Promise(resolve => {
+    setTimeout(() => {
+      splashEl.classList.add('fade-out');
+      setTimeout(() => {
+        splashEl.classList.add('hidden');
+        detectingEl.classList.remove('hidden');
+        resolve();
+      }, 500);
+    }, 1800);
+  });
+
+  // Now await WSL check result (may already be resolved)
+  const wslCheck = await wslCheckPromise;
 
   if (!wslCheck.ok) {
     errorMessage.textContent = tError(wslCheck.error);
@@ -2293,6 +2415,427 @@ btnHealthRefresh.addEventListener('click', () => renderHealthPage());
 
 healthDistroSelect.addEventListener('change', () => renderHealthPage());
 
+// ── Distros page ──────────────────────────────────────────────────────────
+
+const distrosTableContainer = document.getElementById('distros-table-container');
+const distrosLoading = document.getElementById('distros-loading');
+const distrosEmpty = document.getElementById('distros-empty');
+const distrosLog = document.getElementById('distros-log');
+const distrosImportSection = document.getElementById('distros-import-section');
+const distrosLogSection = document.getElementById('distros-log-section');
+const btnDistrosRefresh = document.getElementById('btn-distros-refresh');
+
+let _distrosRefreshTimer = null;
+let _distrosOutputCleanup = null;
+let _distrosBusy = false;
+
+function showDistrosState(which) {
+  distrosTableContainer.classList.add('hidden');
+  distrosLoading.classList.add('hidden');
+  distrosEmpty.classList.add('hidden');
+  if (which === 'table') distrosTableContainer.classList.remove('hidden');
+  else if (which === 'loading') distrosLoading.classList.remove('hidden');
+  else if (which === 'empty') distrosEmpty.classList.remove('hidden');
+}
+
+function appendDistrosLog(text) {
+  distrosLog.textContent += text;
+  distrosLog.scrollTop = distrosLog.scrollHeight;
+}
+
+function setupDistrosOutputStream() {
+  if (_distrosOutputCleanup) _distrosOutputCleanup();
+  _distrosOutputCleanup = window.wslCleaner.onTaskOutput((data) => {
+    if (data.taskId && data.taskId.startsWith('distro-')) {
+      appendDistrosLog(data.text);
+    }
+  });
+}
+
+async function renderDistrosPage() {
+  setupDistrosOutputStream();
+
+  if (state.distros.length === 0) {
+    showDistrosState('empty');
+    return;
+  }
+
+  showDistrosState('loading');
+
+  try {
+    // Fetch comparison data and VHDX info in parallel
+    const distroNames = state.distros.map(d => d.name);
+    const [comparisonData, vhdxFiles] = await Promise.all([
+      window.wslCleaner.getDistroComparison(distroNames),
+      window.wslCleaner.findVhdx(),
+    ]);
+
+    renderDistroTable(comparisonData, vhdxFiles);
+    showDistrosState('table');
+  } catch (err) {
+    console.error('[Distros] Error:', err);
+    showDistrosState('empty');
+  }
+}
+
+function renderDistroTable(comparisonData, vhdxFiles) {
+  // Build a lookup for comparison data
+  const compareMap = {};
+  for (const c of comparisonData) {
+    compareMap[c.distro] = c;
+  }
+
+  // Build table
+  let html = '<table class="distro-table"><thead><tr>';
+  html += '<th>' + t('distros.col.name') + '</th>';
+  html += '<th>' + t('distros.col.state') + '</th>';
+  html += '<th>' + t('distros.col.os') + '</th>';
+  html += '<th>' + t('distros.col.size') + '</th>';
+  html += '<th>' + t('distros.col.packages') + '</th>';
+  html += '<th>' + t('distros.col.uptime') + '</th>';
+  html += '<th>' + t('distros.col.actions') + '</th>';
+  html += '</tr></thead><tbody>';
+
+  for (const d of state.distros) {
+    const info = compareMap[d.name] || {};
+    const isRunning = d.state === 'Running';
+    const stateClass = isRunning ? 'running' : 'stopped';
+    const stateLabel = isRunning ? t('distros.state.running') : t('distros.state.stopped');
+
+    // Find VHDX size for this distro (heuristic: match folder name to distro name)
+    let vhdxSize = null;
+    const distroLower = d.name.toLowerCase();
+    for (const v of vhdxFiles) {
+      if (v.folder.toLowerCase().includes(distroLower) || v.path.toLowerCase().includes(distroLower)) {
+        vhdxSize = v.size;
+        break;
+      }
+    }
+    const sizeDisplay = vhdxSize !== null ? formatBytes(vhdxSize) : t('distros.sizeUnknown');
+
+    const packages = info.packages !== null && info.packages !== undefined ? String(info.packages) : '--';
+    const uptime = info.uptime ? info.uptime.formatted : '--';
+    const osName = info.os || 'Unknown';
+
+    html += '<tr>';
+    // Name
+    html += '<td><div class="distro-name-cell">';
+    html += '<span>' + escapeHtml(d.name) + '</span>';
+    if (d.isDefault) html += '<span class="distro-default-badge">' + t('distros.default') + '</span>';
+    html += '</div></td>';
+    // State
+    html += '<td><span class="distro-state-badge"><span class="distro-state-dot ' + stateClass + '"></span>' + stateLabel + '</span></td>';
+    // OS
+    html += '<td>' + escapeHtml(osName) + '</td>';
+    // Size
+    html += '<td class="mono">' + sizeDisplay + '</td>';
+    // Packages
+    html += '<td class="mono">' + packages + '</td>';
+    // Uptime
+    html += '<td class="mono">' + escapeHtml(uptime) + '</td>';
+    // Actions
+    html += '<td><div class="distro-actions">';
+    html += '<button class="distro-action-btn" data-action="export" data-distro="' + escapeHtml(d.name) + '" title="' + t('distros.export') + '">';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>';
+    html += t('distros.export') + '</button>';
+    html += '<button class="distro-action-btn" data-action="clone" data-distro="' + escapeHtml(d.name) + '" title="' + t('distros.clone') + '">';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    html += t('distros.clone') + '</button>';
+    html += '<button class="distro-action-btn" data-action="restart" data-distro="' + escapeHtml(d.name) + '" title="' + t('distros.restart') + '">';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
+    html += t('distros.restart') + '</button>';
+    html += '</div></td>';
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  distrosTableContainer.innerHTML = html;
+
+  // Wire action buttons
+  distrosTableContainer.querySelectorAll('.distro-action-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      if (_distrosBusy) return;
+      const action = btn.dataset.action;
+      const distro = btn.dataset.distro;
+      if (action === 'export') handleExportDistro(distro);
+      else if (action === 'clone') handleCloneDistro(distro);
+      else if (action === 'restart') handleRestartDistro(distro);
+    });
+  });
+}
+
+async function handleExportDistro(distro) {
+  const result = await window.wslCleaner.showSaveDialog({
+    title: t('distros.exportTitle'),
+    defaultPath: distro + '.tar',
+    filters: [{ name: 'TAR Archive', extensions: ['tar'] }],
+  });
+
+  if (result.canceled || !result.filePath) return;
+
+  _distrosBusy = true;
+  setDistroActionButtonsDisabled(true);
+  appendDistrosLog('\n' + t('distros.exporting', { distro }) + '\n');
+
+  try {
+    const res = await window.wslCleaner.exportDistro({
+      distro,
+      targetPath: result.filePath,
+      taskId: 'distro-export',
+    });
+
+    if (res.ok) {
+      appendDistrosLog(t('distros.exportDone', { distro }) + '\n');
+    } else {
+      appendDistrosLog(t('distros.exportFail', { distro }) + '\n');
+    }
+  } catch (err) {
+    appendDistrosLog(t('distros.exportFail', { distro }) + ' ' + (err.message || '') + '\n');
+  }
+
+  _distrosBusy = false;
+  setDistroActionButtonsDisabled(false);
+}
+
+async function handleCloneDistro(distro) {
+  // Show clone modal
+  const modal = document.getElementById('clone-modal');
+  const nameInput = document.getElementById('clone-modal-name');
+  const locationInput = document.getElementById('clone-modal-location');
+  const descEl = document.getElementById('clone-modal-desc');
+  const btnConfirm = document.getElementById('clone-modal-confirm');
+  const btnCancel = document.getElementById('clone-modal-cancel');
+  const btnBrowse = document.getElementById('clone-modal-browse');
+
+  descEl.innerHTML = t('distros.cloneDesc', { distro: escapeHtml(distro) });
+  nameInput.value = distro + '-Clone';
+  locationInput.value = 'C:\\WSL\\' + distro + '-Clone';
+  modal.classList.remove('hidden');
+
+  return new Promise((resolve) => {
+    function cleanup() {
+      modal.classList.add('hidden');
+      btnConfirm.removeEventListener('click', onConfirm);
+      btnCancel.removeEventListener('click', onCancel);
+      btnBrowse.removeEventListener('click', onBrowse);
+      resolve();
+    }
+
+    async function onBrowse() {
+      const result = await window.wslCleaner.showOpenDialog({
+        title: t('distros.cloneLocationLabel'),
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      if (!result.canceled && result.filePaths.length > 0) {
+        locationInput.value = result.filePaths[0];
+      }
+    }
+
+    async function onConfirm() {
+      const newName = nameInput.value.trim();
+      const installLocation = locationInput.value.trim();
+
+      if (!newName) { nameInput.focus(); return; }
+      if (!installLocation) { locationInput.focus(); return; }
+
+      modal.classList.add('hidden');
+
+      _distrosBusy = true;
+      setDistroActionButtonsDisabled(true);
+      appendDistrosLog('\n' + t('distros.cloning', { distro, name: newName }) + '\n');
+
+      try {
+        const res = await window.wslCleaner.cloneDistro({
+          distro,
+          newName,
+          installLocation,
+          taskId: 'distro-clone',
+        });
+
+        if (res.ok) {
+          appendDistrosLog(t('distros.cloneDone', { distro, name: newName }) + '\n');
+          // Refresh distro list
+          const wslResult = await window.wslCleaner.checkWsl();
+          if (wslResult.ok) {
+            state.distros = wslResult.distros;
+            state.selectedDistros = wslResult.distros.map(d => d.name);
+            renderDistroPicker();
+            await renderDistrosPage();
+          }
+        } else {
+          appendDistrosLog(t('distros.cloneFail', { distro }) + '\n');
+        }
+      } catch (err) {
+        appendDistrosLog(t('distros.cloneFail', { distro }) + ' ' + (err.message || '') + '\n');
+      }
+
+      _distrosBusy = false;
+      setDistroActionButtonsDisabled(false);
+      cleanup();
+    }
+
+    function onCancel() { cleanup(); }
+
+    btnConfirm.addEventListener('click', onConfirm);
+    btnCancel.addEventListener('click', onCancel);
+    btnBrowse.addEventListener('click', onBrowse);
+  });
+}
+
+async function handleRestartDistro(distro) {
+  _distrosBusy = true;
+  setDistroActionButtonsDisabled(true);
+  appendDistrosLog('\n' + t('distros.restarting', { distro }) + '\n');
+
+  try {
+    const res = await window.wslCleaner.restartDistro({
+      distro,
+      taskId: 'distro-restart',
+    });
+
+    if (res.ok) {
+      appendDistrosLog(t('distros.restartDone', { distro }) + '\n');
+    } else {
+      appendDistrosLog(t('distros.restartFail', { distro }) + '\n');
+    }
+
+    // Refresh distro list to update state
+    const wslResult = await window.wslCleaner.checkWsl();
+    if (wslResult.ok) {
+      state.distros = wslResult.distros;
+      renderDistroPicker();
+      await renderDistrosPage();
+    }
+  } catch (err) {
+    appendDistrosLog(t('distros.restartFail', { distro }) + ' ' + (err.message || '') + '\n');
+  }
+
+  _distrosBusy = false;
+  setDistroActionButtonsDisabled(false);
+}
+
+async function handleImportDistro() {
+  const nameInput = document.getElementById('distros-import-name');
+  const locationInput = document.getElementById('distros-import-location');
+  const tarInput = document.getElementById('distros-import-tar');
+
+  const name = nameInput.value.trim();
+  const installLocation = locationInput.value.trim();
+  const tarPath = tarInput.value.trim();
+
+  if (!name) { nameInput.focus(); return; }
+  if (!installLocation) { locationInput.focus(); return; }
+  if (!tarPath) { tarInput.focus(); return; }
+
+  _distrosBusy = true;
+  setDistroActionButtonsDisabled(true);
+  appendDistrosLog('\n' + t('distros.importing', { name }) + '\n');
+
+  try {
+    const res = await window.wslCleaner.importDistro({
+      name,
+      installLocation,
+      tarPath,
+      taskId: 'distro-import',
+    });
+
+    if (res.ok) {
+      appendDistrosLog(t('distros.importDone', { name }) + '\n');
+      nameInput.value = '';
+      locationInput.value = '';
+      tarInput.value = '';
+
+      // Refresh distro list
+      const wslResult = await window.wslCleaner.checkWsl();
+      if (wslResult.ok) {
+        state.distros = wslResult.distros;
+        state.selectedDistros = wslResult.distros.map(d => d.name);
+        renderDistroPicker();
+        await renderDistrosPage();
+      }
+    } else {
+      appendDistrosLog(t('distros.importFail', { name }) + '\n');
+    }
+  } catch (err) {
+    appendDistrosLog(t('distros.importFail', { name }) + ' ' + (err.message || '') + '\n');
+  }
+
+  _distrosBusy = false;
+  setDistroActionButtonsDisabled(false);
+}
+
+function setDistroActionButtonsDisabled(disabled) {
+  const btns = distrosTableContainer.querySelectorAll('.distro-action-btn');
+  btns.forEach(btn => { btn.disabled = disabled; });
+  const importBtn = document.getElementById('distros-import-btn');
+  if (importBtn) importBtn.disabled = disabled;
+}
+
+function startDistrosAutoRefresh() {
+  stopDistrosAutoRefresh();
+  _distrosRefreshTimer = setInterval(() => {
+    if (state.currentPage === 'distros' && !_distrosBusy) {
+      refreshDistrosSilent();
+    }
+  }, 15000);
+}
+
+function stopDistrosAutoRefresh() {
+  if (_distrosRefreshTimer) {
+    clearInterval(_distrosRefreshTimer);
+    _distrosRefreshTimer = null;
+  }
+}
+
+async function refreshDistrosSilent() {
+  if (state.distros.length === 0 || _distrosBusy) return;
+  try {
+    const distroNames = state.distros.map(d => d.name);
+    const [comparisonData, vhdxFiles] = await Promise.all([
+      window.wslCleaner.getDistroComparison(distroNames),
+      window.wslCleaner.findVhdx(),
+    ]);
+    if (state.currentPage === 'distros' && !_distrosBusy) {
+      renderDistroTable(comparisonData, vhdxFiles);
+      showDistrosState('table');
+    }
+  } catch (err) {
+    console.error('[Distros] Auto-refresh error:', err);
+  }
+}
+
+// Wire distros page buttons
+btnDistrosRefresh.addEventListener('click', () => {
+  if (!_distrosBusy) renderDistrosPage();
+});
+
+document.getElementById('distros-import-btn').addEventListener('click', () => handleImportDistro());
+
+document.getElementById('distros-import-browse-tar').addEventListener('click', async () => {
+  const result = await window.wslCleaner.showOpenDialog({
+    title: t('distros.importFile'),
+    filters: [{ name: 'TAR Archive', extensions: ['tar'] }],
+    properties: ['openFile'],
+  });
+  if (!result.canceled && result.filePaths.length > 0) {
+    document.getElementById('distros-import-tar').value = result.filePaths[0];
+  }
+});
+
+document.getElementById('distros-import-browse-location').addEventListener('click', async () => {
+  const result = await window.wslCleaner.showOpenDialog({
+    title: t('distros.importLocation'),
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (!result.canceled && result.filePaths.length > 0) {
+    document.getElementById('distros-import-location').value = result.filePaths[0];
+  }
+});
+
+document.getElementById('distros-log-clear').addEventListener('click', () => {
+  distrosLog.textContent = '';
+});
+
 // ── Language selector ──────────────────────────────────────────────────────
 
 const localeSelect = document.getElementById('locale-select');
@@ -2317,6 +2860,7 @@ localeSelect.addEventListener('change', async () => {
   if (state.currentPage === 'stats') renderStatsPage();
   if (state.currentPage === 'diskmap') renderDiskMap();
   if (state.currentPage === 'health') renderHealthPage();
+  if (state.currentPage === 'distros') renderDistrosPage();
 });
 
 document.addEventListener('locale-changed', () => {
@@ -2329,4 +2873,5 @@ document.addEventListener('locale-changed', () => {
   }
   if (state.currentPage === 'diskmap') renderDiskMap();
   if (state.currentPage === 'health') renderHealthPage();
+  if (state.currentPage === 'distros') renderDistrosPage();
 });

@@ -76,11 +76,48 @@
       </div>
     </section>
 
-    <!-- Loading screen -->
+    <!-- Splash + Loading screen -->
     <section id="loading-screen" class="screen">
-      <div class="loader-wrap">
-        <div class="spinner"></div>
-        <p data-i18n="status.detecting">Detecting WSL 2...</p>
+      <!-- Phase 1: Splash -->
+      <div id="splash" class="splash">
+        <div class="splash-glow"></div>
+        <div class="splash-particles">
+          <div></div><div></div><div></div><div></div>
+          <div></div><div></div><div></div><div></div>
+          <div></div><div></div><div></div><div></div>
+        </div>
+        <svg class="splash-logo" viewBox="0 0 64 64" width="80" height="80" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <!-- Terminal window frame -->
+          <rect x="6" y="8" width="52" height="44" rx="6" stroke="var(--accent)" stroke-width="2"/>
+          <!-- Title bar dots -->
+          <circle cx="16" cy="17" r="2" stroke="var(--accent)" stroke-width="1.5"/>
+          <circle cx="24" cy="17" r="2" stroke="var(--accent)" stroke-width="1.5"/>
+          <circle cx="32" cy="17" r="2" stroke="var(--accent)" stroke-width="1.5"/>
+          <!-- Prompt lines -->
+          <path d="M16 28l6 4-6 4" stroke="var(--accent)" stroke-width="2"/>
+          <line x1="28" y1="36" x2="44" y2="36" stroke="var(--accent)" stroke-width="2"/>
+          <!-- Sparkle / clean star -->
+          <path d="M46 24l1.5 3 3 1.5-3 1.5-1.5 3-1.5-3-3-1.5 3-1.5z" stroke="var(--accent)" stroke-width="1.5"/>
+        </svg>
+        <h1 class="splash-title">WSL Cleaner</h1>
+        <p class="splash-tagline">
+          <span>Clean.</span>
+          <span>Optimize.</span>
+          <span>Compact.</span>
+        </p>
+      </div>
+      <!-- Phase 2: Detecting WSL -->
+      <div id="detecting" class="detecting hidden">
+        <div class="scan-line"></div>
+        <div class="orbital-spinner">
+          <div class="orbit orbit-1"></div>
+          <div class="orbit orbit-2"></div>
+          <div class="orbit orbit-3"></div>
+          <div class="orbit-core"></div>
+        </div>
+        <p class="detecting-text" data-i18n="status.detecting">
+          Detecting WSL 2<span class="detecting-dots"></span>
+        </p>
       </div>
     </section>
 
@@ -136,6 +173,12 @@
             </svg>
             <span data-i18n="nav.health">Health</span>
           </a>
+          <a class="nav-item" data-page="distros">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/>
+            </svg>
+            <span data-i18n="nav.distros">Distros</span>
+          </a>
           <div class="nav-spacer"></div>
           <a class="nav-item" data-page="about">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -150,9 +193,14 @@
           <div id="page-cleaner" class="page">
             <div class="simple-center">
               <div class="simple-hero">
-                <svg class="simple-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-                </svg>
+                <div class="cleaner-logo-wrap">
+                  <div class="cleaner-glow"></div>
+                  <div class="cleaner-particles">
+                    <div></div><div></div><div></div><div></div>
+                    <div></div><div></div><div></div><div></div>
+                  </div>
+                  <img src="../assets/icon.png" class="cleaner-logo" alt="" width="80" height="80" draggable="false">
+                </div>
                 <h2 class="simple-title" data-i18n="simple.diskSize">WSL Disk Size</h2>
                 <div id="simple-size" class="simple-size-value">--</div>
                 <p class="simple-desc" data-i18n="simple.desc">Clean your WSL instance and compact the virtual disk to reclaim space.</p>
@@ -188,6 +236,22 @@
 
               <!-- Step progress list -->
               <div id="simple-steps" class="simple-steps hidden">
+                <div class="progress-header">
+                  <div class="orbital-spinner orbital-spinner-sm">
+                    <div class="orbit orbit-1"></div>
+                    <div class="orbit orbit-2"></div>
+                    <div class="orbit orbit-3"></div>
+                    <div class="orbit-core"></div>
+                  </div>
+                  <div class="progress-bar-track">
+                    <div id="simple-progress-fill" class="progress-bar-fill" style="width:0%"></div>
+                  </div>
+                  <div class="progress-info">
+                    <span id="simple-step-counter"></span>
+                    <span id="simple-elapsed">0:00</span>
+                  </div>
+                </div>
+                <div class="scan-line"></div>
                 <div class="step-item" data-step="stale">
                   <div class="step-icon-slot"></div>
                   <span class="step-label" data-i18n-html="simple.step.stale">Scanning &amp; removing stale directories...</span>
@@ -715,6 +779,85 @@
             </div>
           </div>
 
+          <!-- ════ Distros Page ════ -->
+          <div id="page-distros" class="page hidden">
+            <div class="distros-toolbar">
+              <div class="distros-toolbar-left">
+                <h2 class="section-title" style="margin:0" data-i18n="distros.title">Distro Manager</h2>
+              </div>
+              <div class="distros-toolbar-right">
+                <button id="btn-distros-refresh" class="btn-outline btn-health-refresh">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                  </svg>
+                  <span data-i18n="distros.refresh">Refresh</span>
+                </button>
+              </div>
+            </div>
+            <p class="section-desc" data-i18n="distros.desc">Export, import, clone, and restart your WSL distributions. Compare size, packages, and uptime across all distros at a glance.</p>
+
+            <!-- Comparison table -->
+            <div id="distros-table-container"></div>
+
+            <!-- Loading state -->
+            <div id="distros-loading" class="health-loading hidden">
+              <div class="spinner"></div>
+              <p data-i18n="distros.loading">Loading distro information...</p>
+            </div>
+
+            <!-- Empty state -->
+            <div id="distros-empty" class="health-empty hidden">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/>
+              </svg>
+              <p data-i18n="distros.noDistros">No WSL 2 distros found.</p>
+            </div>
+
+            <!-- Import section -->
+            <div class="card distros-import-card" id="distros-import-section">
+              <div class="card-body">
+                <h3 data-i18n="distros.importTitle">Import Distro</h3>
+                <div class="distros-import-row">
+                  <div class="distros-import-field">
+                    <label data-i18n="distros.importName">Distro Name</label>
+                    <input type="text" id="distros-import-name" class="distros-input" placeholder="MyDistro" data-i18n-placeholder="distros.importNamePlaceholder" autocomplete="off" />
+                  </div>
+                  <div class="distros-import-field">
+                    <label data-i18n="distros.importLocation">Install Location</label>
+                    <div class="distros-import-path-row">
+                      <input type="text" id="distros-import-location" class="distros-input distros-input-wide" placeholder="C:\WSL\MyDistro" data-i18n-placeholder="distros.importLocationPlaceholder" autocomplete="off" />
+                      <button id="distros-import-browse-location" class="btn-outline btn-sm" data-i18n="distros.browse">Browse</button>
+                    </div>
+                  </div>
+                  <div class="distros-import-field">
+                    <label data-i18n="distros.importFile">.tar Archive</label>
+                    <div class="distros-import-path-row">
+                      <input type="text" id="distros-import-tar" class="distros-input distros-input-wide" placeholder="backup.tar" readonly />
+                      <button id="distros-import-browse-tar" class="btn-outline btn-sm" data-i18n="distros.browseTar">Browse</button>
+                    </div>
+                  </div>
+                </div>
+                <button id="distros-import-btn" class="btn-primary btn-sm" style="margin-top:12px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  <span data-i18n="distros.importBtn">Import</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Activity log -->
+            <div class="card distros-log-card" id="distros-log-section">
+              <div class="card-body">
+                <div class="distros-log-header">
+                  <h3 data-i18n="distros.logTitle">Activity Log</h3>
+                  <button id="distros-log-clear" class="btn-small" data-i18n="log.clear">Clear</button>
+                </div>
+                <pre id="distros-log" class="distros-log"></pre>
+              </div>
+            </div>
+          </div>
+
           <!-- ════ About Page ════ -->
           <div id="page-about" class="page hidden">
             <div class="about-center">
@@ -793,6 +936,39 @@
         <button id="aggressive-modal-proceed" class="btn-primary btn-danger modal-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5,3 19,12 5,21"/></svg>
           <span data-i18n="modal.proceed">Proceed Anyway</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clone distro modal -->
+  <div id="clone-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        <h3 data-i18n="distros.cloneTitle">Clone Distro</h3>
+      </div>
+      <p class="modal-desc" id="clone-modal-desc"></p>
+      <div class="distros-import-field" style="margin-top:12px;">
+        <label data-i18n="distros.cloneNameLabel">New Distro Name</label>
+        <input type="text" id="clone-modal-name" class="distros-input" placeholder="Ubuntu-Clone" data-i18n-placeholder="distros.cloneNamePlaceholder" autocomplete="off" />
+      </div>
+      <div class="distros-import-field" style="margin-top:8px;">
+        <label data-i18n="distros.cloneLocationLabel">Install Location</label>
+        <div class="distros-import-path-row">
+          <input type="text" id="clone-modal-location" class="distros-input distros-input-wide" placeholder="C:\WSL\Ubuntu-Clone" data-i18n-placeholder="distros.cloneLocationPlaceholder" autocomplete="off" />
+          <button id="clone-modal-browse" class="btn-outline btn-sm" data-i18n="distros.browse">Browse</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="clone-modal-cancel" class="btn-outline modal-btn" data-i18n="modal.cancel">Cancel</button>
+        <button id="clone-modal-confirm" class="btn-primary modal-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          <span data-i18n="distros.cloneBtn">Clone</span>
         </button>
       </div>
     </div>

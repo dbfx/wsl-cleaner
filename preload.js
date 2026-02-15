@@ -36,6 +36,15 @@ contextBridge.exposeInMainWorld('wslCleaner', {
   // Health info
   getHealthInfo: (distro) => ipcRenderer.invoke('get-health-info', distro),
 
+  // Distro management
+  exportDistro: (opts) => ipcRenderer.invoke('export-distro', opts),
+  importDistro: (opts) => ipcRenderer.invoke('import-distro', opts),
+  cloneDistro: (opts) => ipcRenderer.invoke('clone-distro', opts),
+  restartDistro: (opts) => ipcRenderer.invoke('restart-distro', opts),
+  getDistroComparison: (distros) => ipcRenderer.invoke('get-distro-comparison', distros),
+  showSaveDialog: (opts) => ipcRenderer.invoke('show-save-dialog', opts),
+  showOpenDialog: (opts) => ipcRenderer.invoke('show-open-dialog', opts),
+
   // App info & external URLs
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   openExternal: (url) => ipcRenderer.invoke('open-external-url', url),

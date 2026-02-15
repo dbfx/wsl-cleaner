@@ -40,6 +40,7 @@
   "nav.stats": "Stats",
   "nav.diskmap": "Disk Map",
   "nav.health": "Health",
+  "nav.distros": "Distros",
   "nav.about": "About",
 
   "simple.diskSize": "WSL Disk Size",
@@ -59,6 +60,7 @@
   "simple.estimating": "Estimating...",
   "simple.negligible": "negligible",
   "simple.unavailable": "unavailable",
+  "simple.stepOf": "Step {current} of {total}",
 
   "result.complete": "Cleanup Complete",
   "result.before": "Before",
@@ -426,5 +428,70 @@
   "task.conan-cache.name": "Clean Conan C++ Cache",
   "task.conan-cache.desc": "Removes Conan C++ package manager caches from <code>~/.conan/data</code> and <code>~/.conan2/p</code>. Can be 1&ndash;5 GB for active C++ projects. Re-downloaded on next build.",
   "task.shell-history.name": "Trim Shell History",
-  "task.shell-history.desc": "Trims <code>~/.bash_history</code>, <code>~/.zsh_history</code>, and <code>~/.local/share/fish/fish_history</code> to the last 10 MB. Only touches files larger than 10 MB."
+  "task.shell-history.desc": "Trims <code>~/.bash_history</code>, <code>~/.zsh_history</code>, and <code>~/.local/share/fish/fish_history</code> to the last 10 MB. Only touches files larger than 10 MB.",
+
+  "distros.title": "Distro Manager",
+  "distros.desc": "Export, import, clone, and restart your WSL distributions. Compare size, packages, and uptime across all distros at a glance.",
+  "distros.refresh": "Refresh",
+  "distros.loading": "Loading distro information...",
+  "distros.noDistros": "No WSL 2 distros found.",
+  "distros.refreshing": "Refreshing...",
+
+  "distros.col.name": "Name",
+  "distros.col.state": "State",
+  "distros.col.os": "OS",
+  "distros.col.size": "VHDX Size",
+  "distros.col.packages": "Packages",
+  "distros.col.uptime": "Uptime",
+  "distros.col.actions": "Actions",
+
+  "distros.state.running": "Running",
+  "distros.state.stopped": "Stopped",
+
+  "distros.export": "Export",
+  "distros.import": "Import",
+  "distros.clone": "Clone",
+  "distros.restart": "Restart",
+
+  "distros.exportTitle": "Export Distro",
+  "distros.importTitle": "Import Distro",
+  "distros.importName": "Distro Name",
+  "distros.importNamePlaceholder": "MyDistro",
+  "distros.importLocation": "Install Location",
+  "distros.importLocationPlaceholder": "C:\\WSL\\MyDistro",
+  "distros.importFile": ".tar Archive",
+  "distros.importBtn": "Import",
+  "distros.browse": "Browse",
+  "distros.browseTar": "Browse",
+
+  "distros.cloneTitle": "Clone Distro",
+  "distros.cloneDesc": "Create a copy of <strong>{distro}</strong> as a new distribution.",
+  "distros.cloneNameLabel": "New Distro Name",
+  "distros.cloneNamePlaceholder": "Ubuntu-Clone",
+  "distros.cloneLocationLabel": "Install Location",
+  "distros.cloneLocationPlaceholder": "C:\\WSL\\Ubuntu-Clone",
+  "distros.cloneBtn": "Clone",
+
+  "distros.exporting": "Exporting {distro}...",
+  "distros.importing": "Importing {name}...",
+  "distros.cloning": "Cloning {distro} as {name}...",
+  "distros.restarting": "Restarting {distro}...",
+
+  "distros.exportDone": "Export of {distro} completed successfully.",
+  "distros.importDone": "Import of {name} completed successfully.",
+  "distros.cloneDone": "Clone of {distro} as {name} completed successfully.",
+  "distros.restartDone": "{distro} restarted successfully.",
+
+  "distros.exportFail": "Export of {distro} failed.",
+  "distros.importFail": "Import of {name} failed.",
+  "distros.cloneFail": "Clone of {distro} failed.",
+  "distros.restartFail": "Restart of {distro} failed.",
+  "distros.nameRequired": "Please enter a distro name.",
+  "distros.locationRequired": "Please enter an install location.",
+  "distros.tarRequired": "Please select a .tar archive.",
+
+  "distros.logTitle": "Activity Log",
+  "distros.logEmpty": "No activity yet.",
+  "distros.sizeUnknown": "--",
+  "distros.default": "default"
 }
