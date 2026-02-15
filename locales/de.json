@@ -58,6 +58,7 @@
   "simple.negligible": "vernachlässigbar",
   "simple.unavailable": "nicht verfügbar",
   "simple.stepOf": "Schritt {current} von {total}",
+  "simple.logTitle": "Live-Ausgabe",
   "result.complete": "Bereinigung abgeschlossen",
   "result.before": "Vorher",
   "result.after": "Nachher",

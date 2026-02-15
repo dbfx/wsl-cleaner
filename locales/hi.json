@@ -58,6 +58,7 @@
   "simple.negligible": "निगलिजिबल",
   "simple.unavailable": "उपलब्ध नहीं",
   "simple.stepOf": "चरण {current} में {total}",
+  "simple.logTitle": "सीधा आउटपुट",
   "result.complete": "सफाई पूरी",
   "result.before": "पहले",
   "result.after": "बाद में",

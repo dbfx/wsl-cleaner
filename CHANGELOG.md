@@ -1,3 +1,12 @@
+# [1.3.0](https://github.com/dbfx/wsl-cleaner/compare/v1.2.0...v1.3.0) (2026-02-15)
+
+
+### Features
+
+* startup manager, config editor, web pages ([bd92800](https://github.com/dbfx/wsl-cleaner/commit/bd928003356a0ff3725de941522f06ebaba32889))
+
+
+
 # [1.2.0](https://github.com/dbfx/wsl-cleaner/compare/v1.1.0...v1.2.0) (2026-02-15)
 
 

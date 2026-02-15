@@ -58,6 +58,7 @@
   "simple.negligible": "négligeable",
   "simple.unavailable": "non disponible",
   "simple.stepOf": "Étape {current} sur {total}",
+  "simple.logTitle": "Sortie en direct",
   "result.complete": "Nettoyage terminé",
   "result.before": "Avant",
   "result.after": "Après",

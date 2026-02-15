@@ -58,6 +58,7 @@
   "simple.negligible": "微不足道",
   "simple.unavailable": "不可用",
   "simple.stepOf": "第 {current} 步，共 {total} 步",
+  "simple.logTitle": "实时输出",
   "result.complete": "清理完成",
   "result.before": "之前",
   "result.after": "之后",

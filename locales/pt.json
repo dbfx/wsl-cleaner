@@ -58,6 +58,7 @@
   "simple.negligible": "negligível",
   "simple.unavailable": "indisponível",
   "simple.stepOf": "Passo {current} de {total}",
+  "simple.logTitle": "Saída ao Vivo",
   "result.complete": "Limpeza Completa",
   "result.before": "Antes",
   "result.after": "Depois",
