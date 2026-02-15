@@ -49,3 +49,28 @@ const revealObserver = new IntersectionObserver((entries) => {
 document.querySelectorAll('.reveal').forEach(el => {
   revealObserver.observe(el);
 });
+
+// ── Lightbox ──────────────────────────────────────────────────────────────
+const lightbox = document.getElementById('lightbox');
+const lightboxImg = lightbox.querySelector('img');
+
+document.querySelectorAll('.screenshot-frame').forEach(frame => {
+  frame.addEventListener('click', () => {
+    const img = frame.querySelector('img');
+    lightboxImg.src = img.src;
+    lightboxImg.alt = img.alt;
+    lightbox.classList.add('open');
+  });
+});
+
+function closeLightbox() {
+  lightbox.classList.remove('open');
+}
+
+lightbox.addEventListener('click', (e) => {
+  if (e.target !== lightboxImg) closeLightbox();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeLightbox();
+});
