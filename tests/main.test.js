@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-const { filterNoise, parseWslOutput, isValidExternalUrl, STALE_DIR_NAMES } = require('../lib/utils');
+const { filterNoise, parseWslOutput, isValidExternalUrl, STALE_DIR_NAMES, friendlyError, exitCodeHint } = require('../lib/utils');
 
 // ── filterNoise ──────────────────────────────────────────────────────────────
 
@@ -155,5 +155,104 @@ describe('STALE_DIR_NAMES', () => {
   it('has no duplicates', () => {
     const unique = new Set(STALE_DIR_NAMES);
     expect(unique.size).toBe(STALE_DIR_NAMES.length);
+  });
+});
+
+// ── friendlyError ─────────────────────────────────────────────────────────────
+
+describe('friendlyError', () => {
+  it('maps spawn wsl ENOENT to WSL not installed message', () => {
+    expect(friendlyError('spawn wsl ENOENT')).toContain('WSL is not installed');
+  });
+
+  it('maps ENOENT with wsl context', () => {
+    expect(friendlyError('Error: ENOENT: no such file or directory, wsl')).toContain('WSL is not installed');
+  });
+
+  it('maps Optimize-VHD not recognized', () => {
+    expect(friendlyError('Optimize-VHD : The term is not recognized as a cmdlet')).toContain('Hyper-V PowerShell module');
+  });
+
+  it('maps generic "not recognized as cmdlet" to command not found', () => {
+    expect(friendlyError('SomeCmd : The term is not recognized as a cmdlet')).toContain('Required command not found');
+  });
+
+  it('maps Access is denied', () => {
+    expect(friendlyError('Access is denied.')).toContain('Permission denied');
+  });
+
+  it('maps EACCES', () => {
+    expect(friendlyError('Error: EACCES: permission denied, open /etc/foo')).toContain('Permission denied');
+  });
+
+  it('maps EPERM', () => {
+    expect(friendlyError('Error: EPERM: operation not permitted')).toContain('Permission denied');
+  });
+
+  it('maps distribution not found', () => {
+    expect(friendlyError('There is no distribution with the supplied name.')).toContain('distribution was not found');
+  });
+
+  it('maps Hyper-V not enabled', () => {
+    expect(friendlyError('The virtual machine could not be started because Hyper-V is not running')).toContain('Hyper-V is not enabled');
+  });
+
+  it('maps virtualization disabled (0x80370102)', () => {
+    expect(friendlyError('Error 0x80370102: The virtual machine could not be started')).toContain('Hardware virtualization is disabled');
+  });
+
+  it('maps WSL not installed message', () => {
+    expect(friendlyError('The Windows Subsystem for Linux is not installed')).toContain('WSL is not installed');
+  });
+
+  it('maps ETIMEDOUT', () => {
+    expect(friendlyError('Error: connect ETIMEDOUT 1.2.3.4:443')).toContain('network operation timed out');
+  });
+
+  it('returns original message when no pattern matches', () => {
+    const original = 'Something completely unexpected happened';
+    expect(friendlyError(original)).toBe(original);
+  });
+
+  it('handles null/undefined input', () => {
+    expect(friendlyError(null)).toBe('An unknown error occurred.');
+    expect(friendlyError(undefined)).toBe('An unknown error occurred.');
+  });
+
+  it('handles empty string', () => {
+    expect(friendlyError('')).toBe('An unknown error occurred.');
+  });
+
+  it('handles non-string input', () => {
+    expect(friendlyError(42)).toBe('An unknown error occurred.');
+  });
+});
+
+// ── exitCodeHint ──────────────────────────────────────────────────────────────
+
+describe('exitCodeHint', () => {
+  it('returns "general error" for code 1', () => {
+    expect(exitCodeHint(1)).toBe('general error');
+  });
+
+  it('returns "command not found" for code 127', () => {
+    expect(exitCodeHint(127)).toBe('command not found');
+  });
+
+  it('returns "permission denied or not executable" for code 126', () => {
+    expect(exitCodeHint(126)).toContain('permission denied');
+  });
+
+  it('returns "interrupted" for code 130', () => {
+    expect(exitCodeHint(130)).toContain('interrupted');
+  });
+
+  it('returns "killed" for code 137', () => {
+    expect(exitCodeHint(137)).toContain('killed');
+  });
+
+  it('returns null for unknown codes', () => {
+    expect(exitCodeHint(42)).toBeNull();
+    expect(exitCodeHint(0)).toBeNull();
   });
 });

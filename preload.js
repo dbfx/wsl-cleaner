@@ -34,6 +34,11 @@ contextBridge.exposeInMainWorld('wslCleaner', {
     return () => ipcRenderer.removeListener('task-output', handler);
   },
 
+  // Cleanup history / stats
+  getCleanupHistory: () => ipcRenderer.invoke('get-cleanup-history'),
+  saveCleanupSession: (data) => ipcRenderer.invoke('save-cleanup-session', data),
+  clearCleanupHistory: () => ipcRenderer.invoke('clear-cleanup-history'),
+
   // Auto-update
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   installUpdate: () => ipcRenderer.invoke('install-update'),

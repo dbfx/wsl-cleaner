@@ -118,6 +118,9 @@ function switchPage(pageName) {
   $$('.page').forEach(page => page.classList.add('hidden'));
   const target = $(`#page-${pageName}`);
   if (target) target.classList.remove('hidden');
+
+  // Refresh stats when navigating to the stats page
+  if (pageName === 'stats') renderStatsPage();
 }
 
 // Wire sidebar clicks
@@ -313,6 +316,9 @@ btnRunCleanup.addEventListener('click', async () => {
   logOutput.textContent = '';
   logPanel.classList.remove('hidden');
 
+  const cleanupStart = Date.now();
+  let totalRun = 0, totalOk = 0, totalFail = 0;
+
   for (const distro of state.selectedDistros) {
     const distroTools = state.toolsByDistro[distro] || {};
 
@@ -330,6 +336,7 @@ btnRunCleanup.addEventListener('click', async () => {
     for (const task of enabledTasks) {
       appendLog(`\n── ${task.name} ──────────────────────────────\n`);
       setTaskState(task.id, 'running');
+      totalRun++;
 
       const result = await window.wslCleaner.runCleanup({
         distro,
@@ -341,9 +348,13 @@ btnRunCleanup.addEventListener('click', async () => {
       if (result.ok) {
         setTaskState(task.id, 'completed');
         appendLog(`\n✓ ${task.name} completed.\n`);
+        totalOk++;
       } else {
         setTaskState(task.id, 'failed');
-        appendLog(`\n✗ ${task.name} failed (exit code ${result.code}).\n`);
+        const hint = exitCodeHint(result.code);
+        const detail = hint ? ` — ${hint}` : '';
+        appendLog(`\n✗ ${task.name} failed (exit code ${result.code}${detail}).\n`);
+        totalFail++;
       }
     }
 
@@ -354,6 +365,17 @@ btnRunCleanup.addEventListener('click', async () => {
   }
 
   appendLog('\n══ All tasks finished. ══\n');
+
+  // Save cleanup session to history
+  await window.wslCleaner.saveCleanupSession({
+    type: 'cleanup',
+    distros: [...state.selectedDistros],
+    tasksRun: totalRun,
+    tasksSucceeded: totalOk,
+    tasksFailed: totalFail,
+    durationMs: Date.now() - cleanupStart,
+  });
+
   state.isRunning = false;
   btnRunCleanup.disabled = false;
   btnCompact.disabled = false;
@@ -531,6 +553,8 @@ btnDeleteStale.addEventListener('click', async () => {
   btnDeleteStale.innerHTML = `<div class="task-spinner" style="width:18px;height:18px;border-width:2px;"></div> Deleting ${checkedIndices.length} director${checkedIndices.length === 1 ? 'y' : 'ies'}...`;
   staleDeleteResult.classList.add('hidden');
 
+  const staleStart = Date.now();
+
   // Show log panel for output
   logPanel.classList.remove('hidden');
   appendLog(`\n── Deleting ${checkedIndices.length} stale director${checkedIndices.length === 1 ? 'y' : 'ies'} ──────────────────────────────\n`);
@@ -561,6 +585,15 @@ btnDeleteStale.addEventListener('click', async () => {
     const deletedPaths = new Set(allResults.filter(r => r.ok).map(r => r.path));
     const remaining = staleDirs.filter(d => !deletedPaths.has(d.path));
     renderStaleDirs(remaining);
+
+    // Save stale delete session to history
+    await window.wslCleaner.saveCleanupSession({
+      type: 'stale_delete',
+      distros: [...state.selectedDistros],
+      staleDirsFound: checkedIndices.length,
+      staleDirsDeleted: successCount,
+      durationMs: Date.now() - staleStart,
+    });
   } catch (err) {
     appendLog(`\n✗ Deletion error: ${err.message || err}\n`);
   }
@@ -577,7 +610,7 @@ btnDeleteStale.addEventListener('click', async () => {
 btnCompact.addEventListener('click', async () => {
   if (state.isRunning) return;
   if (state.vhdxFiles.length === 0) {
-    appendLog('\n✗ No VHDX file found. Cannot compact.\n');
+    appendLog('\n✗ No VHDX file found. Cannot compact. The virtual disk may be in a non-standard location.\n');
     logPanel.classList.remove('hidden');
     return;
   }
@@ -590,6 +623,7 @@ btnCompact.addEventListener('click', async () => {
   logOutput.textContent = '';
   logPanel.classList.remove('hidden');
 
+  const compactStart = Date.now();
   let totalBefore = 0;
   let totalAfter = 0;
 
@@ -649,7 +683,7 @@ btnCompact.addEventListener('click', async () => {
     if (compactRes.ok) {
       appendLog(`   ${state.vhdxFiles.length > 1 ? vf.distro + ': ' : ''}Compaction finished.\n`);
     } else {
-      appendLog(`   ${state.vhdxFiles.length > 1 ? vf.distro + ': ' : ''}Compaction issue: ${compactRes.output}\n`);
+      appendLog(`   ${state.vhdxFiles.length > 1 ? vf.distro + ': ' : ''}Compaction did not complete successfully. ${compactRes.output}\n`);
     }
   }
 
@@ -683,6 +717,16 @@ btnCompact.addEventListener('click', async () => {
 
   // Update displayed sizes
   updateVhdxDisplay();
+
+  // Save compact session to history
+  await window.wslCleaner.saveCleanupSession({
+    type: 'compact',
+    distros: [...state.selectedDistros],
+    vhdxSizeBefore: totalBefore,
+    vhdxSizeAfter: totalAfter,
+    spaceSaved: Math.max(0, saved),
+    durationMs: Date.now() - compactStart,
+  });
 
   state.isRunning = false;
   btnCompact.disabled = false;
@@ -733,6 +777,15 @@ btnSimpleGo.addEventListener('click', async () => {
   simpleSteps.classList.remove('hidden');
   resetSimpleSteps();
 
+  // Hide the disclaimer and button once cleanup starts
+  const disclaimer = document.querySelector('.simple-disclaimer');
+  if (disclaimer) disclaimer.classList.add('hidden');
+  btnSimpleGo.classList.add('hidden');
+
+  const simpleStart = Date.now();
+  let simpleTotalRun = 0, simpleTotalOk = 0, simpleTotalFail = 0;
+  let simpleStaleFound = 0, simpleStaleDeleted = 0;
+
   // Measure total VHDX size before
   let totalBefore = 0;
   for (const vf of state.vhdxFiles) {
@@ -747,15 +800,17 @@ btnSimpleGo.addEventListener('click', async () => {
     try {
       const staleDirsFound = await window.wslCleaner.scanStaleDirs({ distro, days: 30 });
       stalePaths = staleDirsFound.map(d => d.path);
+      simpleStaleFound += stalePaths.length;
     } catch { /* scan failed, continue anyway */ }
 
     if (stalePaths.length > 0) {
       try {
-        await window.wslCleaner.deleteStaleDirs({
+        const delResults = await window.wslCleaner.deleteStaleDirs({
           distro,
           paths: stalePaths,
           taskId: 'simple-stale',
         });
+        simpleStaleDeleted += delResults.filter(r => r.ok).length;
       } catch { /* ignore deletion errors */ }
     }
   }
@@ -768,13 +823,19 @@ btnSimpleGo.addEventListener('click', async () => {
     const distroTools = state.toolsByDistro[distro] || {};
     const availableTasks = TASKS.filter(t => !t.aggressive && t.id !== 'fstrim' && (!t.requires || distroTools[t.requires]));
     for (const task of availableTasks) {
+      simpleTotalRun++;
       const result = await window.wslCleaner.runCleanup({
         distro,
         taskId: task.id,
         command: task.command,
         asRoot: task.asRoot,
       });
-      if (!result.ok) cleanupOk = false;
+      if (result.ok) {
+        simpleTotalOk++;
+      } else {
+        simpleTotalFail++;
+        cleanupOk = false;
+      }
     }
   }
   setSimpleStep('cleanup', cleanupOk ? 'done' : 'failed');
@@ -838,9 +899,355 @@ btnSimpleGo.addEventListener('click', async () => {
   // Update displayed sizes
   updateVhdxDisplay();
 
+  // Save simple session to history
+  await window.wslCleaner.saveCleanupSession({
+    type: 'simple',
+    distros: [...state.selectedDistros],
+    vhdxSizeBefore: totalBefore,
+    vhdxSizeAfter: totalAfter,
+    spaceSaved: Math.max(0, saved),
+    tasksRun: simpleTotalRun,
+    tasksSucceeded: simpleTotalOk,
+    tasksFailed: simpleTotalFail,
+    staleDirsFound: simpleStaleFound,
+    staleDirsDeleted: simpleStaleDeleted,
+    durationMs: Date.now() - simpleStart,
+  });
+
   state.isRunning = false;
   btnSimpleGo.disabled = false;
+  btnSimpleGo.classList.remove('hidden');
   distroPickerBtn.disabled = false;
+});
+
+// ── Stats page ───────────────────────────────────────────────────────────────
+
+const statTotalSaved = $('#stat-total-saved');
+const statTotalCleanups = $('#stat-total-cleanups');
+const statAvgSaved = $('#stat-avg-saved');
+const statLastCleanup = $('#stat-last-cleanup');
+const historyList = $('#history-list');
+const historyEmpty = $('#history-empty');
+const btnClearHistory = $('#btn-clear-history');
+const chartDiskEmpty = $('#chart-disk-empty');
+const chartSavedEmpty = $('#chart-saved-empty');
+
+let diskSizeChart = null;
+let spaceSavedChart = null;
+
+function formatDuration(ms) {
+  if (!ms || ms <= 0) return '--';
+  if (ms < 1000) return `${ms}ms`;
+  const secs = Math.round(ms / 1000);
+  if (secs < 60) return `${secs}s`;
+  const mins = Math.floor(secs / 60);
+  const rem = secs % 60;
+  return rem > 0 ? `${mins}m ${rem}s` : `${mins}m`;
+}
+
+function formatRelativeDate(isoString) {
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) > 1 ? 's' : ''} ago`;
+  return date.toLocaleDateString();
+}
+
+function typeLabel(type) {
+  const map = { simple: 'Simple', cleanup: 'Cleanup', compact: 'Compact', stale_delete: 'Stale' };
+  return map[type] || type;
+}
+
+const chartColors = {
+  accent: '#00d4aa',
+  accentDim: 'rgba(0, 212, 170, 0.15)',
+  border: '#2a2a45',
+  text: '#8888a8',
+  textMuted: '#55556a',
+  gridLine: 'rgba(42, 42, 69, 0.6)',
+  barGradientTop: '#00d4aa',
+  barGradientBottom: '#006b55',
+};
+
+function createChartDefaults() {
+  Chart.defaults.color = chartColors.text;
+  Chart.defaults.font.family = "'Segoe UI', system-ui, -apple-system, sans-serif";
+  Chart.defaults.font.size = 11;
+}
+
+function buildDiskSizeChart(history) {
+  const canvas = $('#chart-disk-size');
+  const ctx = canvas.getContext('2d');
+
+  // Filter records that have VHDX size data (compaction events)
+  const records = history.filter(r => r.vhdxSizeBefore != null || r.vhdxSizeAfter != null);
+
+  if (records.length === 0) {
+    canvas.parentElement.style.display = 'none';
+    chartDiskEmpty.classList.remove('hidden');
+    if (diskSizeChart) { diskSizeChart.destroy(); diskSizeChart = null; }
+    return;
+  }
+
+  canvas.parentElement.style.display = '';
+  chartDiskEmpty.classList.add('hidden');
+
+  // Build data points: show before and after as connected points
+  const labels = [];
+  const beforeData = [];
+  const afterData = [];
+  for (const r of records) {
+    const d = new Date(r.timestamp);
+    const label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    labels.push(label);
+    beforeData.push(r.vhdxSizeBefore ? +(r.vhdxSizeBefore / (1024 * 1024 * 1024)).toFixed(2) : null);
+    afterData.push(r.vhdxSizeAfter ? +(r.vhdxSizeAfter / (1024 * 1024 * 1024)).toFixed(2) : null);
+  }
+
+  if (diskSizeChart) diskSizeChart.destroy();
+
+  diskSizeChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Before',
+          data: beforeData,
+          borderColor: '#ff7675',
+          backgroundColor: 'rgba(255, 118, 117, 0.1)',
+          borderWidth: 2,
+          pointRadius: 4,
+          pointBackgroundColor: '#ff7675',
+          tension: 0.3,
+          fill: false,
+        },
+        {
+          label: 'After',
+          data: afterData,
+          borderColor: chartColors.accent,
+          backgroundColor: chartColors.accentDim,
+          borderWidth: 2,
+          pointRadius: 4,
+          pointBackgroundColor: chartColors.accent,
+          tension: 0.3,
+          fill: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          position: 'top',
+          align: 'end',
+          labels: { boxWidth: 12, padding: 16, usePointStyle: true },
+        },
+        tooltip: {
+          backgroundColor: '#1c1c30',
+          borderColor: '#2a2a45',
+          borderWidth: 1,
+          titleColor: '#e8e8f0',
+          bodyColor: '#8888a8',
+          padding: 12,
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(2) + ' GB' : 'N/A'}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: chartColors.gridLine, drawBorder: false },
+          ticks: { color: chartColors.textMuted },
+        },
+        y: {
+          grid: { color: chartColors.gridLine, drawBorder: false },
+          ticks: {
+            color: chartColors.textMuted,
+            callback: (val) => val.toFixed(1) + ' GB',
+          },
+        },
+      },
+    },
+  });
+}
+
+function buildSpaceSavedChart(history) {
+  const canvas = $('#chart-space-saved');
+  const ctx = canvas.getContext('2d');
+
+  const records = history.filter(r => r.spaceSaved != null && r.spaceSaved > 0);
+
+  if (records.length === 0) {
+    canvas.parentElement.style.display = 'none';
+    chartSavedEmpty.classList.remove('hidden');
+    if (spaceSavedChart) { spaceSavedChart.destroy(); spaceSavedChart = null; }
+    return;
+  }
+
+  canvas.parentElement.style.display = '';
+  chartSavedEmpty.classList.add('hidden');
+
+  const labels = records.map(r => {
+    const d = new Date(r.timestamp);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  });
+  const data = records.map(r => +(r.spaceSaved / (1024 * 1024)).toFixed(1));
+
+  if (spaceSavedChart) spaceSavedChart.destroy();
+
+  // Create gradient
+  const gradient = ctx.createLinearGradient(0, 0, 0, 240);
+  gradient.addColorStop(0, 'rgba(0, 212, 170, 0.7)');
+  gradient.addColorStop(1, 'rgba(0, 212, 170, 0.1)');
+
+  spaceSavedChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Space Saved',
+        data,
+        backgroundColor: gradient,
+        borderColor: chartColors.accent,
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1c1c30',
+          borderColor: '#2a2a45',
+          borderWidth: 1,
+          titleColor: '#e8e8f0',
+          bodyColor: '#8888a8',
+          padding: 12,
+          callbacks: {
+            label: (ctx) => {
+              const mb = ctx.parsed.y;
+              return mb >= 1024 ? `Saved: ${(mb / 1024).toFixed(2)} GB` : `Saved: ${mb.toFixed(1)} MB`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: chartColors.textMuted },
+        },
+        y: {
+          grid: { color: chartColors.gridLine, drawBorder: false },
+          ticks: {
+            color: chartColors.textMuted,
+            callback: (val) => val >= 1024 ? (val / 1024).toFixed(1) + ' GB' : val + ' MB',
+          },
+        },
+      },
+    },
+  });
+}
+
+function renderHistoryList(history) {
+  if (history.length === 0) {
+    historyEmpty.classList.remove('hidden');
+    historyList.innerHTML = '';
+    historyList.appendChild(historyEmpty);
+    return;
+  }
+
+  historyEmpty.classList.add('hidden');
+  // Show most recent first
+  const sorted = [...history].reverse();
+
+  let html = '';
+  for (const r of sorted) {
+    const date = new Date(r.timestamp);
+    const dateMain = date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const dateTime = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+    let detailsHtml = '';
+
+    if (r.spaceSaved != null && r.spaceSaved > 0) {
+      detailsHtml += `<span class="history-detail"><span class="accent">${formatBytes(r.spaceSaved)}</span> saved</span>`;
+    }
+    if (r.vhdxSizeBefore != null && r.vhdxSizeAfter != null) {
+      detailsHtml += `<span class="history-detail"><strong>${formatBytes(r.vhdxSizeBefore)}</strong> &rarr; <strong>${formatBytes(r.vhdxSizeAfter)}</strong></span>`;
+    }
+    if (r.tasksRun != null && r.tasksRun > 0) {
+      detailsHtml += `<span class="history-detail">${r.tasksSucceeded || 0}/${r.tasksRun} tasks</span>`;
+    }
+    if (r.staleDirsDeleted != null && r.staleDirsDeleted > 0) {
+      detailsHtml += `<span class="history-detail">${r.staleDirsDeleted} dirs removed</span>`;
+    }
+    if (!detailsHtml) {
+      detailsHtml = `<span class="history-detail" style="color:var(--text-muted)">No size data</span>`;
+    }
+
+    html += `
+      <div class="history-item fade-in">
+        <div class="history-date">
+          <div class="history-date-main">${escapeHtml(dateMain)}</div>
+          <div class="history-date-time">${escapeHtml(dateTime)}</div>
+        </div>
+        <span class="history-type type-${escapeHtml(r.type)}">${typeLabel(r.type)}</span>
+        <div class="history-details">${detailsHtml}</div>
+        <span class="history-distros" title="${escapeHtml((r.distros || []).join(', '))}">${escapeHtml((r.distros || []).join(', '))}</span>
+        <span class="history-duration">${formatDuration(r.durationMs)}</span>
+      </div>`;
+  }
+  historyList.innerHTML = html;
+}
+
+function updateSummaryCards(history) {
+  // Total space saved
+  const totalSaved = history.reduce((sum, r) => sum + (r.spaceSaved > 0 ? r.spaceSaved : 0), 0);
+  statTotalSaved.textContent = totalSaved > 0 ? formatBytes(totalSaved) : '--';
+
+  // Total cleanups
+  statTotalCleanups.textContent = history.length;
+
+  // Average savings (only from sessions that saved space)
+  const withSavings = history.filter(r => r.spaceSaved > 0);
+  if (withSavings.length > 0) {
+    const avg = withSavings.reduce((s, r) => s + r.spaceSaved, 0) / withSavings.length;
+    statAvgSaved.textContent = formatBytes(avg);
+  } else {
+    statAvgSaved.textContent = '--';
+  }
+
+  // Last cleanup
+  if (history.length > 0) {
+    const last = history[history.length - 1];
+    statLastCleanup.textContent = formatRelativeDate(last.timestamp);
+  } else {
+    statLastCleanup.textContent = 'Never';
+  }
+}
+
+async function renderStatsPage() {
+  createChartDefaults();
+  const history = await window.wslCleaner.getCleanupHistory();
+
+  updateSummaryCards(history);
+  buildDiskSizeChart(history);
+  buildSpaceSavedChart(history);
+  renderHistoryList(history);
+}
+
+btnClearHistory.addEventListener('click', async () => {
+  await window.wslCleaner.clearCleanupHistory();
+  renderStatsPage();
 });
 
 // ── About page ───────────────────────────────────────────────────────────────

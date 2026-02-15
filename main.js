@@ -4,7 +4,8 @@ const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
-const { filterNoise, parseWslOutput, isValidExternalUrl, STALE_DIR_NAMES } = require('./lib/utils');
+const { filterNoise, parseWslOutput, isValidExternalUrl, STALE_DIR_NAMES, friendlyError } = require('./lib/utils');
+const statsDb = require('./lib/stats-db');
 
 // ── Logging setup ────────────────────────────────────────────────────────────
 
@@ -106,7 +107,7 @@ ipcMain.handle('check-for-updates', async () => {
     return { ok: true };
   } catch (err) {
     log.error('Manual update check failed:', err.message);
-    return { ok: false, error: err.message };
+    return { ok: false, error: friendlyError(err.message) };
   }
 });
 
@@ -114,7 +115,10 @@ ipcMain.handle('install-update', () => {
   autoUpdater.quitAndInstall();
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  statsDb.init(app.getPath('userData'));
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   app.quit();
@@ -155,7 +159,7 @@ ipcMain.handle('check-wsl', async () => {
 
     return { ok: true, distros, defaultDistro };
   } catch (err) {
-    return { ok: false, error: 'WSL 2 is not installed or not available. Please install WSL 2 first.\n\n' + (err.message || '') };
+    return { ok: false, error: friendlyError(err.message) || 'WSL 2 is not installed or not available. Please install WSL 2 first.' };
   }
 });
 
@@ -238,7 +242,7 @@ function runCleanupTask({ distro, taskId, command, asRoot }) {
     });
 
     proc.on('error', (err) => {
-      resolve({ ok: false, output: err.message, code: -1 });
+      resolve({ ok: false, output: friendlyError(err.message), code: -1 });
     });
   });
 }
@@ -328,7 +332,7 @@ ipcMain.handle('get-file-size', async (_event, filePath) => {
     const stats = fs.statSync(filePath);
     return { ok: true, size: stats.size };
   } catch (err) {
-    return { ok: false, error: err.message };
+    return { ok: false, error: friendlyError(err.message) };
   }
 });
 
@@ -357,7 +361,7 @@ ipcMain.handle('run-wsl-command', async (event, { command, taskId }) => {
     });
 
     proc.on('error', (err) => {
-      resolve({ ok: false, output: err.message, code: -1 });
+      resolve({ ok: false, output: friendlyError(err.message), code: -1 });
     });
   });
 });
@@ -394,6 +398,9 @@ ipcMain.handle('scan-stale-dirs', async (_event, { distro, days }) => {
     proc.stderr.on('data', () => {}); // discard stderr
 
     proc.on('close', () => {
+      // Clean up temp script
+      fs.unlink(tempScript, () => {});
+
       const results = [];
       const lines = output.trim().split('\n').filter(l => l.trim());
       for (const line of lines) {
@@ -408,7 +415,10 @@ ipcMain.handle('scan-stale-dirs', async (_event, { distro, days }) => {
       resolve(results);
     });
 
-    proc.on('error', () => resolve([]));
+    proc.on('error', () => {
+      fs.unlink(tempScript, () => {});
+      resolve([]);
+    });
   });
 });
 
@@ -440,7 +450,7 @@ ipcMain.handle('delete-stale-dirs', async (_event, { distro, paths, taskId }) =>
       });
 
       proc.on('close', (code) => resolve({ ok: code === 0, path: dirPath, output }));
-      proc.on('error', (err) => resolve({ ok: false, path: dirPath, output: err.message }));
+      proc.on('error', (err) => resolve({ ok: false, path: dirPath, output: friendlyError(err.message) }));
     });
     results.push(result);
   }
@@ -472,7 +482,7 @@ ipcMain.handle('optimize-vhdx', async (_event, { vhdxPath, taskId }) => {
     const args = [
       '-NoProfile',
       '-Command',
-      `Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${tempScript.replace(/'/g, "''")}'`
+      `Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${tempScript.replace(/'/g, "''")}'`
     ];
 
     const proc = spawn('powershell', args, { windowsHide: true, shell: false });
@@ -501,7 +511,7 @@ ipcMain.handle('optimize-vhdx', async (_event, { vhdxPath, taskId }) => {
         if (result === 'SUCCESS') {
           resolve({ ok: true, output: 'Optimize-VHD completed successfully.', code: 0 });
         } else {
-          resolve({ ok: false, output: result || fullOutput, code: code || 1 });
+          resolve({ ok: false, output: friendlyError(result || fullOutput), code: code || 1 });
         }
       } catch {
         resolve({ ok: code === 0, output: fullOutput, code });
@@ -509,7 +519,24 @@ ipcMain.handle('optimize-vhdx', async (_event, { vhdxPath, taskId }) => {
     });
 
     proc.on('error', (err) => {
-      resolve({ ok: false, output: err.message, code: -1 });
+      try { fs.unlinkSync(tempScript); } catch { /* ignore */ }
+      try { fs.unlinkSync(tempOut); } catch { /* ignore */ }
+      resolve({ ok: false, output: friendlyError(err.message), code: -1 });
     });
   });
+});
+
+// ── Cleanup history / stats ──────────────────────────────────────────────────
+
+ipcMain.handle('get-cleanup-history', () => {
+  return statsDb.loadHistory();
+});
+
+ipcMain.handle('save-cleanup-session', (_event, record) => {
+  return statsDb.saveSession(record);
+});
+
+ipcMain.handle('clear-cleanup-history', () => {
+  statsDb.clearHistory();
+  return { ok: true };
 });

@@ -90,6 +90,12 @@
             </svg>
             <span>Advanced</span>
           </a>
+          <a class="nav-item" data-page="stats">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+            <span>Stats</span>
+          </a>
           <div class="nav-spacer"></div>
           <a class="nav-item" data-page="about">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -306,6 +312,85 @@
             </div>
           </div>
 
+          <!-- ════ Stats Page ════ -->
+          <div id="page-stats" class="page hidden">
+            <h2 class="section-title">Cleanup Stats</h2>
+            <p class="section-desc">Track your cleanup history and see how much space you've recovered over time.</p>
+
+            <!-- Summary stat cards -->
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </div>
+                <div class="stat-value" id="stat-total-saved">--</div>
+                <div class="stat-label">Total Space Saved</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                  </svg>
+                </div>
+                <div class="stat-value" id="stat-total-cleanups">0</div>
+                <div class="stat-label">Cleanups Performed</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="20" x2="12" y2="10"/><polyline points="18,20 18,4 6,20 6,14"/>
+                  </svg>
+                </div>
+                <div class="stat-value" id="stat-avg-saved">--</div>
+                <div class="stat-label">Avg Space Saved</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                </div>
+                <div class="stat-value" id="stat-last-cleanup">Never</div>
+                <div class="stat-label">Last Cleanup</div>
+              </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="chart-card">
+              <div class="chart-header">Disk Size Over Time</div>
+              <div class="chart-body">
+                <canvas id="chart-disk-size"></canvas>
+              </div>
+              <div id="chart-disk-empty" class="chart-empty hidden">No compaction data yet. Run a cleanup to start tracking.</div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-header">Space Saved Per Session</div>
+              <div class="chart-body">
+                <canvas id="chart-space-saved"></canvas>
+              </div>
+              <div id="chart-saved-empty" class="chart-empty hidden">No sessions with space savings yet.</div>
+            </div>
+
+            <!-- History list -->
+            <div class="history-section">
+              <div class="history-header">
+                <h3>Cleanup History</h3>
+                <button id="btn-clear-history" class="btn-small">Clear History</button>
+              </div>
+              <div id="history-list" class="history-list">
+                <div class="stats-empty" id="history-empty">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                  </svg>
+                  <p>No cleanup history yet. Run a cleanup to start tracking your stats.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- ════ About Page ════ -->
           <div id="page-about" class="page hidden">
             <div class="about-center">
@@ -354,6 +439,7 @@
 
   <script src="utils.js"></script>
   <script src="tasks.js"></script>
+  <script src="chart.umd.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

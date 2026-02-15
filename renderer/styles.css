@@ -1180,3 +1180,222 @@ a:hover {
   color: var(--text-muted);
   font-size: 12px;
 }
+
+/* ── Stats Page ──────────────────────────────────────────────────────────── */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 18px;
+  text-align: center;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.stat-card:hover {
+  border-color: rgba(0, 212, 170, 0.3);
+  box-shadow: 0 0 20px rgba(0, 212, 170, 0.08);
+}
+
+.stat-icon {
+  margin-bottom: 12px;
+  opacity: 0.85;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 500;
+}
+
+/* ── Charts ──────────────────────────────────────────────────────────────── */
+
+.chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.chart-header {
+  padding: 14px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.chart-body {
+  padding: 20px;
+  position: relative;
+  height: 240px;
+}
+
+.chart-body canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.chart-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ── History List ────────────────────────────────────────────────────────── */
+
+.history-section {
+  margin-top: 4px;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.history-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.history-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+.history-item:last-child {
+  border-bottom: none;
+}
+.history-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.history-date {
+  flex-shrink: 0;
+  min-width: 130px;
+}
+.history-date-main {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.history-date-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.history-type {
+  flex-shrink: 0;
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.history-type.type-simple {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+.history-type.type-cleanup {
+  background: rgba(108, 92, 231, 0.15);
+  color: #a29bfe;
+}
+.history-type.type-compact {
+  background: rgba(253, 203, 110, 0.15);
+  color: #fdcb6e;
+}
+.history-type.type-stale_delete {
+  background: rgba(255, 118, 117, 0.15);
+  color: #ff7675;
+}
+
+.history-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.history-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.history-detail strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.history-detail .accent {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.history-distros {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-duration {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.stats-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.stats-empty svg {
+  display: block;
+  margin: 0 auto 14px;
+  opacity: 0.5;
+}
+.stats-empty p {
+  max-width: 300px;
+  margin: 0 auto;
+  line-height: 1.6;
+}

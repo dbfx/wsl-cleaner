@@ -27,7 +27,25 @@ function estimateTotalSize(dirs) {
   return formatBytes(totalBytes);
 }
 
+/**
+ * Map a Linux exit code to a short human-readable hint.
+ * Returns null for unknown codes.
+ */
+function exitCodeHint(code) {
+  switch (code) {
+    case 1:   return 'general error';
+    case 2:   return 'misuse of shell command';
+    case 126:  return 'permission denied or not executable';
+    case 127:  return 'command not found';
+    case 130:  return 'interrupted';
+    case 137:  return 'killed (out of memory?)';
+    case 139:  return 'segmentation fault';
+    case 143:  return 'terminated';
+    default:  return null;
+  }
+}
+
 // Export for Node.js/test environments; in browser these are just globals
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { formatBytes, escapeHtml, estimateTotalSize };
+  module.exports = { formatBytes, escapeHtml, estimateTotalSize, exitCodeHint };
 }

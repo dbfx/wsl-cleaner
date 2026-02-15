@@ -1,6 +1,6 @@
 {
   "name": "wsl-cleaner",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Clean and reclaim disk space from WSL2",
   "main": "main.js",
   "scripts": {
@@ -8,7 +8,8 @@
     "build": "electron-builder --win",
     "test": "vitest run",
     "test:watch": "vitest",
-    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s"
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
+    "release": "node scripts/release.js"
   },
   "author": "dbfx",
   "license": "MIT",
@@ -54,6 +55,7 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
+    "chart.js": "^4.5.1",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.7.3"
   }
