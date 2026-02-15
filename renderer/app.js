@@ -18,6 +18,14 @@ let state = {
 // Initialise toggles - all on by default, aggressive tasks off by default
 TASKS.forEach(t => (state.taskEnabled[t.id] = !t.aggressive));
 
+/**
+ * Persist the current task toggle states to disk via IPC.
+ * Called whenever the user enables or disables a task.
+ */
+function saveTaskPreferences() {
+  window.wslCleaner.saveTaskPreferences({ ...state.taskEnabled });
+}
+
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 
 const $ = (sel) => document.querySelector(sel);
@@ -54,6 +62,24 @@ const simpleResult = $('#simple-result');
 const simpleSizeBefore = $('#simple-size-before');
 const simpleSizeAfter = $('#simple-size-after');
 const simpleSpaceSaved = $('#simple-space-saved');
+const simpleCleanOnlyCb = $('#simple-clean-only-cb');
+
+// Aggressive confirmation modal
+const aggressiveModal = $('#aggressive-modal');
+const aggressiveModalList = $('#aggressive-modal-list');
+const aggressiveModalCancel = $('#aggressive-modal-cancel');
+const aggressiveModalProceed = $('#aggressive-modal-proceed');
+
+// Size estimation (Advanced)
+const btnEstimateSizes = $('#btn-estimate-sizes');
+const estimateSummary = $('#estimate-summary');
+const estimateTotal = $('#estimate-total');
+
+// Size estimation (Simple)
+const simpleEstimate = $('#simple-estimate');
+const btnSimpleEstimate = $('#btn-simple-estimate');
+const simpleEstimateResult = $('#simple-estimate-result');
+const simpleEstimateTotal = $('#simple-estimate-total');
 
 // About page
 const aboutVersion = $('#about-version');
@@ -234,6 +260,10 @@ async function refreshDistroData() {
 
   renderTasks();
   updateVhdxDisplay();
+  clearEstimates();
+  // Show the simple estimate button now that distros are loaded
+  simpleEstimate.classList.remove('hidden');
+  simpleEstimateResult.classList.add('hidden');
 }
 
 function updateVhdxDisplay() {
@@ -280,6 +310,7 @@ function renderTasks() {
         </div>
         <div class="task-desc">${task.desc}</div>
       </div>
+      <span class="task-size-badge hidden" data-size-task="${task.id}"></span>
       <div class="task-status-slot"></div>
     `;
 
@@ -288,16 +319,178 @@ function renderTasks() {
       const cb = card.querySelector('input[type="checkbox"]');
       cb.checked = !cb.checked;
       state.taskEnabled[task.id] = cb.checked;
+      saveTaskPreferences();
     });
 
     const cb = card.querySelector('input[type="checkbox"]');
     cb.addEventListener('change', (e) => {
       state.taskEnabled[task.id] = e.target.checked;
+      saveTaskPreferences();
     });
 
     taskCardsEl.appendChild(card);
   }
 }
+
+// ── Size estimation ──────────────────────────────────────────────────────
+
+/**
+ * Run size estimates for all enabled tasks across all selected distros.
+ * Updates task card badges and the summary total.
+ * @returns {Promise<Object<string, string>>} merged size map
+ */
+async function runEstimates() {
+  // Gather tasks that have estimate commands and are enabled + available
+  const mergedSizes = {};
+
+  for (const distro of state.selectedDistros) {
+    const distroTools = state.toolsByDistro[distro] || {};
+    const estimatable = TASKS.filter(t => {
+      const available = !t.requires || distroTools[t.requires];
+      return available && t.estimateCommand && state.taskEnabled[t.id];
+    }).map(t => ({ taskId: t.id, estimateCommand: t.estimateCommand }));
+
+    if (estimatable.length === 0) continue;
+
+    const sizes = await window.wslCleaner.estimateTaskSizes({ distro, tasks: estimatable });
+    // Merge: keep the larger value if multiple distros report for the same task
+    for (const [id, val] of Object.entries(sizes)) {
+      if (!mergedSizes[id]) {
+        mergedSizes[id] = val;
+      } else {
+        // Sum sizes from multiple distros by parsing to bytes and adding
+        const prev = parseSizeToBytes(mergedSizes[id]);
+        const curr = parseSizeToBytes(val);
+        mergedSizes[id] = formatBytes(prev + curr);
+      }
+    }
+  }
+
+  return mergedSizes;
+}
+
+/**
+ * Parse a human-readable size string (e.g. "120M", "4.5G", "12K") to bytes.
+ */
+function parseSizeToBytes(sizeStr) {
+  if (!sizeStr) return 0;
+  const match = sizeStr.match(/^([\d.]+)\s*([KMGT])?i?B?$/i);
+  if (!match) return 0;
+  const num = parseFloat(match[1]);
+  const unit = (match[2] || '').toUpperCase();
+  const multipliers = { K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 };
+  return num * (multipliers[unit] || 1);
+}
+
+/**
+ * Update size badges on task cards and the summary total from a sizes map.
+ */
+function displayEstimates(sizes) {
+  // Update per-task badges
+  let totalBytes = 0;
+  let taskCount = 0;
+  for (const task of TASKS) {
+    const badge = document.querySelector(`.task-size-badge[data-size-task="${task.id}"]`);
+    if (!badge) continue;
+    const val = sizes[task.id];
+    if (val) {
+      badge.textContent = '~' + val;
+      badge.classList.remove('hidden');
+      totalBytes += parseSizeToBytes(val);
+      taskCount++;
+    } else {
+      badge.textContent = '';
+      badge.classList.add('hidden');
+    }
+  }
+
+  // Update summary
+  if (taskCount > 0) {
+    estimateTotal.textContent = '~' + formatBytes(totalBytes);
+    estimateSummary.classList.remove('hidden');
+  } else {
+    estimateSummary.classList.add('hidden');
+  }
+
+  return { totalBytes, taskCount };
+}
+
+/**
+ * Clear all size estimate badges and hide the summary.
+ */
+function clearEstimates() {
+  document.querySelectorAll('.task-size-badge').forEach(b => {
+    b.textContent = '';
+    b.classList.add('hidden');
+  });
+  estimateSummary.classList.add('hidden');
+}
+
+// ── Estimate Sizes button (Advanced) ─────────────────────────────────────
+
+btnEstimateSizes.addEventListener('click', async () => {
+  if (state.isRunning) return;
+  state.isRunning = true;
+  btnEstimateSizes.disabled = true;
+  btnRunCleanup.disabled = true;
+  distroPickerBtn.disabled = true;
+  clearEstimates();
+
+  btnEstimateSizes.innerHTML = `<div class="task-spinner" style="width:18px;height:18px;border-width:2px;"></div> Estimating...`;
+
+  try {
+    const sizes = await runEstimates();
+    displayEstimates(sizes);
+  } catch (err) {
+    appendLog(`\nEstimation error: ${err.message || err}\n`);
+  }
+
+  btnEstimateSizes.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Estimate Sizes`;
+  btnEstimateSizes.disabled = false;
+  btnRunCleanup.disabled = false;
+  distroPickerBtn.disabled = false;
+  state.isRunning = false;
+});
+
+// ── Estimate Sizes button (Simple) ───────────────────────────────────────
+
+btnSimpleEstimate.addEventListener('click', async () => {
+  if (state.isRunning) return;
+  state.isRunning = true;
+  btnSimpleEstimate.disabled = true;
+  btnSimpleGo.disabled = true;
+  distroPickerBtn.disabled = true;
+  simpleEstimateResult.classList.add('hidden');
+
+  btnSimpleEstimate.innerHTML = `<div class="task-spinner" style="width:16px;height:16px;border-width:2px;"></div> Estimating...`;
+
+  try {
+    const sizes = await runEstimates();
+    // Calculate total for Simple mode
+    let totalBytes = 0;
+    for (const task of TASKS) {
+      if (task.aggressive || task.id === 'fstrim') continue; // Simple mode skips aggressive + fstrim
+      if (sizes[task.id]) {
+        totalBytes += parseSizeToBytes(sizes[task.id]);
+      }
+    }
+    if (totalBytes > 0) {
+      simpleEstimateTotal.textContent = '~' + formatBytes(totalBytes);
+    } else {
+      simpleEstimateTotal.textContent = 'negligible';
+    }
+    simpleEstimateResult.classList.remove('hidden');
+  } catch {
+    simpleEstimateTotal.textContent = 'unavailable';
+    simpleEstimateResult.classList.remove('hidden');
+  }
+
+  btnSimpleEstimate.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Estimate Reclaimable Space`;
+  btnSimpleEstimate.disabled = false;
+  btnSimpleGo.disabled = false;
+  distroPickerBtn.disabled = false;
+  state.isRunning = false;
+});
 
 // ── Streaming output listener ────────────────────────────────────────────────
 
@@ -305,14 +498,78 @@ window.wslCleaner.onTaskOutput(({ taskId, text }) => {
   appendLog(text);
 });
 
+// ── Aggressive task confirmation ─────────────────────────────────────────────
+
+function getEnabledAggressiveTasks() {
+  return TASKS.filter(t => {
+    if (!t.aggressive) return false;
+    if (!state.taskEnabled[t.id]) return false;
+    const available = !t.requires || state.tools[t.requires];
+    return available;
+  });
+}
+
+function stripHtml(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || '';
+}
+
+function showAggressiveConfirmation(aggressiveTasks) {
+  return new Promise((resolve) => {
+    // Build the task list
+    aggressiveModalList.innerHTML = aggressiveTasks.map(t => `
+      <div class="modal-task-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <div class="modal-task-item-info">
+          <div class="modal-task-item-name">${escapeHtml(stripHtml(t.name))}</div>
+          <div class="modal-task-item-desc">${t.desc}</div>
+        </div>
+      </div>
+    `).join('');
+
+    aggressiveModal.classList.remove('hidden');
+
+    function cleanup() {
+      aggressiveModalCancel.removeEventListener('click', onCancel);
+      aggressiveModalProceed.removeEventListener('click', onProceed);
+      aggressiveModal.removeEventListener('click', onOverlay);
+      document.removeEventListener('keydown', onEscape);
+      aggressiveModal.classList.add('hidden');
+    }
+
+    function onCancel() { cleanup(); resolve(false); }
+    function onProceed() { cleanup(); resolve(true); }
+    function onOverlay(e) { if (e.target === aggressiveModal) { cleanup(); resolve(false); } }
+    function onEscape(e) { if (e.key === 'Escape') { cleanup(); resolve(false); } }
+
+    aggressiveModalCancel.addEventListener('click', onCancel);
+    aggressiveModalProceed.addEventListener('click', onProceed);
+    aggressiveModal.addEventListener('click', onOverlay);
+    document.addEventListener('keydown', onEscape);
+  });
+}
+
 // ── Run cleanup (Advanced) ───────────────────────────────────────────────────
 
 btnRunCleanup.addEventListener('click', async () => {
   if (state.isRunning) return;
+
+  // Check for aggressive tasks and prompt confirmation
+  const aggressiveTasks = getEnabledAggressiveTasks();
+  if (aggressiveTasks.length > 0) {
+    const confirmed = await showAggressiveConfirmation(aggressiveTasks);
+    if (!confirmed) return;
+  }
+
   state.isRunning = true;
   btnRunCleanup.disabled = true;
+  btnEstimateSizes.disabled = true;
   btnCompact.disabled = true;
   distroPickerBtn.disabled = true;
+  clearEstimates();
   logOutput.textContent = '';
   logPanel.classList.remove('hidden');
 
@@ -378,6 +635,7 @@ btnRunCleanup.addEventListener('click', async () => {
 
   state.isRunning = false;
   btnRunCleanup.disabled = false;
+  btnEstimateSizes.disabled = false;
   btnCompact.disabled = false;
   distroPickerBtn.disabled = false;
 });
@@ -618,6 +876,7 @@ btnCompact.addEventListener('click', async () => {
   state.isRunning = true;
   btnCompact.disabled = true;
   btnRunCleanup.disabled = true;
+  btnEstimateSizes.disabled = true;
   distroPickerBtn.disabled = true;
   compactResult.classList.add('hidden');
   logOutput.textContent = '';
@@ -731,6 +990,7 @@ btnCompact.addEventListener('click', async () => {
   state.isRunning = false;
   btnCompact.disabled = false;
   btnRunCleanup.disabled = false;
+  btnEstimateSizes.disabled = false;
   distroPickerBtn.disabled = false;
 });
 
@@ -764,23 +1024,47 @@ function resetSimpleSteps() {
   });
 }
 
+/** Show/hide step items that only apply to the full (non-clean-only) flow. */
+const compactOnlySteps = ['shutdown', 'update', 'compact', 'restart'];
+
+function applyCleanOnlyVisibility(cleanOnly) {
+  compactOnlySteps.forEach(step => {
+    const item = simpleSteps.querySelector(`.step-item[data-step="${step}"]`);
+    if (item) item.style.display = cleanOnly ? 'none' : '';
+  });
+}
+
+// Toggle button label and step visibility when "Clean only" changes
+const btnSimpleGoLabel = $('#btn-simple-go-label');
+
+simpleCleanOnlyCb.addEventListener('change', () => {
+  const cleanOnly = simpleCleanOnlyCb.checked;
+  btnSimpleGoLabel.textContent = cleanOnly ? 'Clean' : 'Clean & Compact';
+  applyCleanOnlyVisibility(cleanOnly);
+});
+
 // ── Simple mode: Clean & Compact ─────────────────────────────────────────────
 
 btnSimpleGo.addEventListener('click', async () => {
   if (state.isRunning) return;
   if (state.vhdxFiles.length === 0) return;
 
+  const cleanOnly = simpleCleanOnlyCb.checked;
+
   state.isRunning = true;
   btnSimpleGo.disabled = true;
+  simpleCleanOnlyCb.disabled = true;
   distroPickerBtn.disabled = true;
   simpleResult.classList.add('hidden');
   simpleSteps.classList.remove('hidden');
   resetSimpleSteps();
+  applyCleanOnlyVisibility(cleanOnly);
 
   // Hide the disclaimer and button once cleanup starts
   const disclaimer = document.querySelector('.simple-disclaimer');
   if (disclaimer) disclaimer.classList.add('hidden');
   btnSimpleGo.classList.add('hidden');
+  document.querySelector('.simple-mode-toggle').classList.add('hidden');
 
   const simpleStart = Date.now();
   let simpleTotalRun = 0, simpleTotalOk = 0, simpleTotalFail = 0;
@@ -855,32 +1139,35 @@ btnSimpleGo.addEventListener('click', async () => {
   }
   setSimpleStep('fstrim', fstrimOk ? 'done' : 'failed');
 
-  // Step 4: Shutdown WSL (once for all distros)
-  setSimpleStep('shutdown', 'active');
-  await window.wslCleaner.runWslCommand({ command: 'wsl --shutdown', taskId: 'simple' });
-  setSimpleStep('shutdown', 'done');
+  // Steps 4-7 only run when NOT in "clean only" mode
+  if (!cleanOnly) {
+    // Step 4: Shutdown WSL (once for all distros)
+    setSimpleStep('shutdown', 'active');
+    await window.wslCleaner.runWslCommand({ command: 'wsl --shutdown', taskId: 'simple' });
+    setSimpleStep('shutdown', 'done');
 
-  // Step 5: Update WSL
-  setSimpleStep('update', 'active');
-  await window.wslCleaner.runWslCommand({ command: 'wsl --update', taskId: 'simple' });
-  setSimpleStep('update', 'done');
+    // Step 5: Update WSL
+    setSimpleStep('update', 'active');
+    await window.wslCleaner.runWslCommand({ command: 'wsl --update', taskId: 'simple' });
+    setSimpleStep('update', 'done');
 
-  // Step 6: Compact all VHDX files
-  setSimpleStep('compact', 'active');
-  await window.wslCleaner.runWslCommand({ command: 'wsl --shutdown', taskId: 'simple' });
-  let compactOk = true;
-  for (const vf of state.vhdxFiles) {
-    const compactRes = await window.wslCleaner.optimizeVhdx({ vhdxPath: vf.path, taskId: 'simple' });
-    if (!compactRes.ok) compactOk = false;
+    // Step 6: Compact all VHDX files
+    setSimpleStep('compact', 'active');
+    await window.wslCleaner.runWslCommand({ command: 'wsl --shutdown', taskId: 'simple' });
+    let compactOk = true;
+    for (const vf of state.vhdxFiles) {
+      const compactRes = await window.wslCleaner.optimizeVhdx({ vhdxPath: vf.path, taskId: 'simple' });
+      if (!compactRes.ok) compactOk = false;
+    }
+    setSimpleStep('compact', compactOk ? 'done' : 'failed');
+
+    // Step 7: Restart each selected distro
+    setSimpleStep('restart', 'active');
+    for (const distro of state.selectedDistros) {
+      await window.wslCleaner.runWslCommand({ command: `wsl -d ${distro} -- echo "WSL restarted"`, taskId: 'simple' });
+    }
+    setSimpleStep('restart', 'done');
   }
-  setSimpleStep('compact', compactOk ? 'done' : 'failed');
-
-  // Step 7: Restart each selected distro
-  setSimpleStep('restart', 'active');
-  for (const distro of state.selectedDistros) {
-    await window.wslCleaner.runWslCommand({ command: `wsl -d ${distro} -- echo "WSL restarted"`, taskId: 'simple' });
-  }
-  setSimpleStep('restart', 'done');
 
   // Measure total VHDX size after
   let totalAfter = 0;
@@ -901,7 +1188,7 @@ btnSimpleGo.addEventListener('click', async () => {
 
   // Save simple session to history
   await window.wslCleaner.saveCleanupSession({
-    type: 'simple',
+    type: cleanOnly ? 'simple-clean-only' : 'simple',
     distros: [...state.selectedDistros],
     vhdxSizeBefore: totalBefore,
     vhdxSizeAfter: totalAfter,
@@ -916,7 +1203,9 @@ btnSimpleGo.addEventListener('click', async () => {
 
   state.isRunning = false;
   btnSimpleGo.disabled = false;
+  simpleCleanOnlyCb.disabled = false;
   btnSimpleGo.classList.remove('hidden');
+  document.querySelector('.simple-mode-toggle').classList.remove('hidden');
   distroPickerBtn.disabled = false;
 });
 
@@ -1351,6 +1640,16 @@ async function init() {
   state.distros = wslCheck.distros;
   state.selectedDistros = [wslCheck.defaultDistro];
   statusText.textContent = `WSL 2 Ready — ${wslCheck.distros.length} distro(s) found`;
+
+  // Restore saved task preferences (overlay on top of defaults)
+  try {
+    const savedPrefs = await window.wslCleaner.getTaskPreferences();
+    for (const [taskId, enabled] of Object.entries(savedPrefs)) {
+      if (taskId in state.taskEnabled) {
+        state.taskEnabled[taskId] = enabled;
+      }
+    }
+  } catch { /* use defaults if preferences can't be loaded */ }
 
   renderDistroPicker();
   await refreshDistroData();

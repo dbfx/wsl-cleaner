@@ -2,7 +2,9 @@
 
 > **WARNING: This tool permanently deletes files inside your WSL distribution.** It is designed for developers who understand what is being removed. Deleted files include caches, logs, build artifacts, and other regenerable data -- but once removed they are gone. **Use Advanced mode first** to review exactly what each task does before running Simple mode. Always ensure you have backups of anything important. The authors are not responsible for any data loss.
 
-A lightweight Electron desktop app to clean, optimize, and compact your Windows Subsystem for Linux installation. Reclaim disk space with one click.
+Designed for developers who use Windows 10/11 with WSL2, and have large WSL2 volumes that need cleaning and compacting. Can often save 10-100+ GB of space on your SSD.
+
+[![Download](https://img.shields.io/badge/Download-Latest%20Release-brightgreen?style=for-the-badge)](https://github.com/dbfx/wsl-cleaner/releases)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 

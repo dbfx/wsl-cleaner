@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('wslCleaner', {
   scanStaleDirs: (opts) => ipcRenderer.invoke('scan-stale-dirs', opts),
   deleteStaleDirs: (opts) => ipcRenderer.invoke('delete-stale-dirs', opts),
 
+  // Size estimation
+  estimateTaskSizes: (opts) => ipcRenderer.invoke('estimate-task-sizes', opts),
+
   // App info & external URLs
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
@@ -38,6 +41,10 @@ contextBridge.exposeInMainWorld('wslCleaner', {
   getCleanupHistory: () => ipcRenderer.invoke('get-cleanup-history'),
   saveCleanupSession: (data) => ipcRenderer.invoke('save-cleanup-session', data),
   clearCleanupHistory: () => ipcRenderer.invoke('clear-cleanup-history'),
+
+  // Task preferences
+  getTaskPreferences: () => ipcRenderer.invoke('get-task-preferences'),
+  saveTaskPreferences: (prefs) => ipcRenderer.invoke('save-task-preferences', prefs),
 
   // Auto-update
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),

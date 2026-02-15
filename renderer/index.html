@@ -108,6 +108,14 @@
         <div id="page-container">
           <!-- ════ Simple Page ════ -->
           <div id="page-simple" class="page">
+            <div class="simple-mode-toggle" title="Skip WSL shutdown, update, disk compaction, and restart. Only run cleanup tasks inside WSL.">
+              <label class="toggle" onclick="event.stopPropagation()">
+                <input type="checkbox" id="simple-clean-only-cb" />
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="simple-mode-toggle-label">Clean only</span>
+            </div>
+
             <div class="simple-center">
               <div class="simple-hero">
                 <svg class="simple-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -118,9 +126,24 @@
                 <p class="simple-desc">Clean your WSL instance and compact the virtual disk to reclaim space.</p>
               </div>
 
+              <div id="simple-estimate" class="simple-estimate hidden">
+                <button id="btn-simple-estimate" class="btn-outline btn-estimate btn-sm">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  Estimate Reclaimable Space
+                </button>
+                <div id="simple-estimate-result" class="simple-estimate-result hidden">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  <span>Estimated reclaimable: <strong id="simple-estimate-total">--</strong></span>
+                </div>
+              </div>
+
               <button id="btn-simple-go" class="btn-primary btn-simple-go">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>
-                Clean &amp; Compact
+                <span id="btn-simple-go-label">Clean &amp; Compact</span>
               </button>
 
               <!-- Disclaimer -->
@@ -195,12 +218,27 @@
             <h2 class="section-title">Cleanup Tasks</h2>
             <p class="section-desc">Select which tasks to run inside your WSL instance. All tasks are enabled by default.</p>
 
+            <div id="estimate-summary" class="estimate-summary hidden">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span>Estimated reclaimable: <strong id="estimate-total">--</strong></span>
+            </div>
+
             <div id="task-cards"></div>
 
-            <button id="btn-run-cleanup" class="btn-primary">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>
-              Run Cleanup
-            </button>
+            <div class="btn-row">
+              <button id="btn-estimate-sizes" class="btn-outline btn-estimate">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                Estimate Sizes
+              </button>
+              <button id="btn-run-cleanup" class="btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>
+                Run Cleanup
+              </button>
+            </div>
 
             <!-- Log output -->
             <div id="log-panel" class="hidden">
@@ -436,6 +474,28 @@
       </div>
     </section>
   </main>
+
+  <!-- Aggressive task confirmation modal -->
+  <div id="aggressive-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <h3>Aggressive Tasks Enabled</h3>
+      </div>
+      <p class="modal-desc">The following tasks will <strong>permanently destroy data</strong> that may be difficult or impossible to restore:</p>
+      <div id="aggressive-modal-list" class="modal-task-list"></div>
+      <p class="modal-hint">These tasks are marked <span class="chip-aggressive" style="display:inline-block;vertical-align:middle;">aggressive</span> because they remove data beyond typical caches. Make sure you understand the consequences before proceeding.</p>
+      <div class="modal-actions">
+        <button id="aggressive-modal-cancel" class="btn-outline modal-btn">Cancel</button>
+        <button id="aggressive-modal-proceed" class="btn-primary btn-danger modal-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5,3 19,12 5,21"/></svg>
+          Proceed Anyway
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script src="utils.js"></script>
   <script src="tasks.js"></script>

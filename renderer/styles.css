@@ -732,11 +732,88 @@ a:hover {
   font-weight: 500;
 }
 
+/* ── Size estimate badge on task cards ─────────────────────────────────── */
+.task-size-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: 2px 8px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 8px;
+  white-space: nowrap;
+  align-self: center;
+}
+
+/* ── Estimate summary bar ─────────────────────────────────────────────── */
+.estimate-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(0, 212, 170, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.estimate-summary strong {
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+/* ── Button row (estimate + run side by side) ─────────────────────────── */
+.btn-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-estimate {
+  padding: 12px 24px;
+}
+.btn-estimate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Simple mode estimate ─────────────────────────────────────────────── */
+.simple-estimate {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.simple-estimate .btn-sm {
+  padding: 8px 18px;
+  font-size: 13px;
+}
+.simple-estimate-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(0, 212, 170, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.simple-estimate-result strong {
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
 /* ── Simple Page ──────────────────────────────────────────────────────────── */
 #page-simple {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .simple-center {
@@ -776,6 +853,22 @@ a:hover {
   color: var(--text-muted);
   font-size: 14px;
   line-height: 1.6;
+}
+
+.simple-mode-toggle {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+  z-index: 1;
+}
+.simple-mode-toggle-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  user-select: none;
 }
 
 .btn-simple-go {
@@ -1398,4 +1491,123 @@ a:hover {
   max-width: 300px;
   margin: 0 auto;
   line-height: 1.6;
+}
+
+/* ── Aggressive Confirmation Modal ──────────────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  animation: modalFadeIn 0.2s ease;
+}
+.modal-overlay.hidden {
+  display: none !important;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.5);
+  padding: 28px 32px;
+  max-width: 520px;
+  width: 90%;
+  animation: modalSlideIn 0.25s ease;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.modal-header svg {
+  flex-shrink: 0;
+}
+.modal-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--warning);
+}
+
+.modal-desc {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.modal-desc strong {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.modal-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.modal-task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(255, 165, 2, 0.06);
+  border: 1px solid rgba(255, 165, 2, 0.15);
+  border-radius: var(--radius-sm);
+}
+.modal-task-item svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.modal-task-item-info {
+  flex: 1;
+  min-width: 0;
+}
+.modal-task-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+.modal-task-item-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.modal-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modal-btn {
+  padding: 10px 22px;
+  font-size: 13px;
+  font-weight: 600;
 }

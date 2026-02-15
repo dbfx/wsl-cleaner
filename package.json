@@ -3,8 +3,12 @@
   "version": "1.1.0",
   "description": "Clean and reclaim disk space from WSL2",
   "main": "main.js",
+  "bin": {
+    "wsl-cleaner": "./cli.js"
+  },
   "scripts": {
     "start": "electron .",
+    "cli": "node cli.js",
     "build": "electron-builder --win",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -29,6 +33,7 @@
     ],
     "files": [
       "main.js",
+      "cli.js",
       "preload.js",
       "lib/**/*",
       "renderer/**/*",
