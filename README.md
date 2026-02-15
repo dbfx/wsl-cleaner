@@ -6,6 +6,8 @@ A lightweight Electron desktop app to clean, optimize, and compact your Windows 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+![WSL Cleaner](assets/combo.png)
+
 ## Features
 
 ### Simple Mode
