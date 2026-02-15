@@ -93,6 +93,16 @@ Real-time system metrics for your WSL distributions, turning the app into a ligh
 - **System info:** installed package count, GPU/CUDA availability, WSL interop status
 - **WSL config:** reads `.wslconfig` memory/swap limits and displays alongside actual usage
 
+### Distro Manager
+Centralized control panel for all your WSL distributions. Features include:
+
+- **Comparison table** showing every distro's state, OS, VHDX size, installed package count, and uptime side by side
+- **Export** any distro to a `.tar` backup with a file picker
+- **Import** a distro from a `.tar` archive, choosing name and install location
+- **Clone** a distro in one click (export + import under a new name)
+- **One-click restart** — terminates and re-launches a distro instantly
+- Auto-refreshes every 15 seconds while the page is active
+
 ### Disk Map (Treemap Visualizer)
 Interactive treemap (WinDirStat-style) that shows exactly what's consuming space inside your WSL filesystem. Runs `du` in the background, renders a clickable chart with drill-down navigation and breadcrumbs. Automatically excludes Windows mounts (`/mnt`).
 
@@ -158,7 +168,7 @@ wsl-cleaner/
   preload.js           # Secure bridge (contextBridge → window.wslCleaner)
   cli.js               # Standalone CLI (node cli.js --help)
   lib/
-    wsl-ops.js         # WSL commands, VHDX discovery, stale scanning, health info
+    wsl-ops.js         # WSL commands, VHDX discovery, stale scanning, health info, distro management
     utils.js           # Pure helpers — parseWslOutput, friendlyError, etc.
     stats-db.js        # Cleanup history persistence (JSON)
     preferences.js     # Task toggle & locale preference persistence

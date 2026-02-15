@@ -717,6 +717,24 @@ a:hover {
   transition: filter var(--transition);
 }
 
+.nav-section-label {
+  padding: 8px 20px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.3));
+  user-select: none;
+}
+.nav-section-label + .nav-item {
+  margin-top: 0;
+}
+.nav-section-label:not(:first-child) {
+  margin-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 12px;
+}
+
 .nav-spacer {
   flex: 1;
 }
@@ -1314,7 +1332,6 @@ a:hover {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  position: relative;
 }
 
 .simple-center {
@@ -1329,65 +1346,10 @@ a:hover {
   margin-bottom: 32px;
 }
 
-/* Cleaner logo wrap with glow + particles (reuses splash patterns) */
-.cleaner-logo-wrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 200px;
-  height: 200px;
-  margin-bottom: 8px;
-}
-
-.cleaner-glow {
-  position: absolute;
-  width: 240px;
-  height: 240px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(0, 212, 170, 0.18) 0%, rgba(0, 180, 216, 0.08) 40%, transparent 70%);
-  animation: splashGlowPulse 2.5s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.cleaner-particles {
-  position: absolute;
-  inset: -20px;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-.cleaner-particles > div {
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--accent);
-  opacity: 0;
-  animation: particleFloat 3s ease-in-out infinite;
-}
-.cleaner-particles > div:nth-child(1) { left: 10%; bottom: -5%; animation-delay: 0s; animation-duration: 3.2s; }
-.cleaner-particles > div:nth-child(2) { left: 25%; bottom: -5%; animation-delay: 0.4s; animation-duration: 2.8s; }
-.cleaner-particles > div:nth-child(3) { left: 40%; bottom: -5%; animation-delay: 0.8s; animation-duration: 3.5s; }
-.cleaner-particles > div:nth-child(4) { left: 55%; bottom: -5%; animation-delay: 0.2s; animation-duration: 3s; }
-.cleaner-particles > div:nth-child(5) { left: 70%; bottom: -5%; animation-delay: 0.6s; animation-duration: 2.6s; }
-.cleaner-particles > div:nth-child(6) { left: 85%; bottom: -5%; animation-delay: 1s; animation-duration: 3.3s; }
-.cleaner-particles > div:nth-child(7) { left: 30%; bottom: -5%; animation-delay: 0.5s; animation-duration: 2.9s; }
-.cleaner-particles > div:nth-child(8) { left: 65%; bottom: -5%; animation-delay: 0.9s; animation-duration: 3.1s; }
-
 .cleaner-logo {
-  position: relative;
-  z-index: 1;
   width: 80px;
   height: 80px;
-  filter: drop-shadow(0 0 20px rgba(0, 212, 170, 0.35));
-  animation: cleanerFloat 3s ease-in-out infinite;
-}
-
-@keyframes cleanerFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  margin-bottom: 8px;
 }
 
 .simple-title {

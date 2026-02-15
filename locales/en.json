@@ -35,6 +35,8 @@
   "distro.count": "{count} distros selected",
   "distro.default": "default",
 
+  "nav.section.cleaning": "Cleaning",
+  "nav.section.tools": "Tools",
   "nav.cleaner": "Cleaner",
   "nav.settings": "Settings",
   "nav.stats": "Stats",

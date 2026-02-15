@@ -21,7 +21,7 @@ Target audience: developers running WSL 2 with large virtual disk images who wan
 ```
 Electron Main Process (Node.js)
   ├── main.js              # Window lifecycle, IPC handlers, auto-updater
-  ├── lib/wsl-ops.js       # WSL command execution, VHDX discovery, stale scanning, disk usage scanning, health info
+  ├── lib/wsl-ops.js       # WSL command execution, VHDX discovery, stale scanning, disk usage scanning, health info, distro export/import/clone/restart/comparison
   ├── lib/utils.js         # parseWslOutput, friendlyError, exitCodeHint, STALE_DIR_NAMES
   ├── lib/stats-db.js      # Cleanup history persistence (JSON file)
   └── lib/preferences.js   # Task toggle + locale preference persistence
@@ -56,8 +56,9 @@ Tests
   ├── tests/preferences.test.js  # Tests for lib/preferences.js persistence
   ├── tests/renderer.test.js     # Tests for renderer/utils.js functions
   ├── tests/tasks.test.js        # Tests for task definitions
-  ├── tests/cli.test.js          # Tests for CLI parseArgs, stripHtml, formatBytes
-  └── tests/i18n.test.js         # Tests for renderer/i18n.js (t, tp, tError)
+  ├── tests/cli.test.js              # Tests for CLI parseArgs, stripHtml, formatBytes
+  ├── tests/i18n.test.js             # Tests for renderer/i18n.js (t, tp, tError)
+  └── tests/wsl-ops-distro.test.js   # Tests for distro management exports and signatures
 ```
 
 ### IPC Pattern
@@ -78,7 +79,7 @@ All communication between main and renderer uses Electron's `ipcMain.handle` / `
 |------|---------|
 | `main.js` | Electron app lifecycle, all IPC handlers, auto-updater events, locale data serving |
 | `preload.js` | Exposes `window.wslCleaner` API (WSL ops, preferences, locale, updates) |
-| `lib/wsl-ops.js` | `checkWsl`, `detectTools`, `runCleanupTask`, `findVhdx`, `optimizeVhdx`, `scanStaleDirs`, `deleteStaleDirs`, `estimateTaskSizes`, `scanDiskUsage`, `cancelDiskScan`, `getHealthInfo` |
+| `lib/wsl-ops.js` | `checkWsl`, `detectTools`, `runCleanupTask`, `findVhdx`, `optimizeVhdx`, `scanStaleDirs`, `deleteStaleDirs`, `estimateTaskSizes`, `scanDiskUsage`, `cancelDiskScan`, `getHealthInfo`, `exportDistro`, `importDistro`, `cloneDistro`, `restartDistro`, `getDistroComparison` |
 | `lib/utils.js` | Pure utility functions: `filterNoise`, `parseWslOutput`, `friendlyError`, `exitCodeHint`, `isValidExternalUrl`, `STALE_DIR_NAMES` |
 | `lib/stats-db.js` | Read/write cleanup history to a JSON file in userData |
 | `lib/preferences.js` | Read/write task toggles and locale preference to JSON files in userData |
@@ -87,7 +88,7 @@ All communication between main and renderer uses Electron's `ipcMain.handle` / `
 | `renderer/utils.js` | `formatBytes`, `escapeHtml`, `estimateTotalSize`, `exitCodeHint` (returns i18n keys) |
 | `renderer/tasks.js` | `TASKS` array with 40+ entries. Each has `id`, `name`, `desc`, `command`, `asRoot`, `requires`, optional `estimateCommand`, optional `aggressive` |
 | `renderer/treemap.js` | Squarified treemap layout algorithm and DOM-based renderer. Exposes `window.Treemap` with `buildTree`, `findNode`, `squarify`, `renderTreemap` |
-| `renderer/app.js` | All UI logic: navigation, distro picker, task card rendering, cleanup execution, stale scanning, disk compaction, disk map treemap, health dashboard, stats/charts, update checking, language selector |
+| `renderer/app.js` | All UI logic: navigation, distro picker, task card rendering, cleanup execution, stale scanning, disk compaction, disk map treemap, health dashboard, distro manager (comparison table, export/import/clone/restart), stats/charts, update checking, language selector |
 | `renderer/styles.css` | Full dark-mode stylesheet, custom properties for colors |
 | `cli.js` | Standalone CLI for headless/scripted usage (`wsl-cleaner --clean -d Ubuntu`). Exports `parseArgs`, `stripHtml`, `formatBytes` for testing |
 

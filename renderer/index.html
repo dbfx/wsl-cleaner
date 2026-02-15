@@ -143,6 +143,7 @@
       <!-- Sidebar + content layout -->
       <div id="main-layout">
         <nav id="sidebar">
+          <div class="nav-section-label" data-i18n="nav.section.cleaning">Cleaning</div>
           <a class="nav-item active" data-page="cleaner">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/>
@@ -161,6 +162,7 @@
             </svg>
             <span data-i18n="nav.stats">Stats</span>
           </a>
+          <div class="nav-section-label" data-i18n="nav.section.tools">Tools</div>
           <a class="nav-item" data-page="diskmap">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="4"/><rect x="14" y="10" width="7" height="3"/><rect x="3" y="13" width="7" height="8"/><rect x="14" y="16" width="7" height="5"/>
@@ -193,14 +195,7 @@
           <div id="page-cleaner" class="page">
             <div class="simple-center">
               <div class="simple-hero">
-                <div class="cleaner-logo-wrap">
-                  <div class="cleaner-glow"></div>
-                  <div class="cleaner-particles">
-                    <div></div><div></div><div></div><div></div>
-                    <div></div><div></div><div></div><div></div>
-                  </div>
-                  <img src="../assets/icon.png" class="cleaner-logo" alt="" width="80" height="80" draggable="false">
-                </div>
+                <img src="../assets/icon.png" class="cleaner-logo" alt="" width="80" height="80" draggable="false">
                 <h2 class="simple-title" data-i18n="simple.diskSize">WSL Disk Size</h2>
                 <div id="simple-size" class="simple-size-value">--</div>
                 <p class="simple-desc" data-i18n="simple.desc">Clean your WSL instance and compact the virtual disk to reclaim space.</p>

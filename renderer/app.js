@@ -2455,6 +2455,20 @@ function setupDistrosOutputStream() {
 async function renderDistrosPage() {
   setupDistrosOutputStream();
 
+  // Refresh distro list so state (Running/Stopped) is current
+  try {
+    const wslResult = await window.wslCleaner.checkWsl();
+    if (wslResult.ok) {
+      state.distros = wslResult.distros;
+      // Keep selected distros in sync (remove any that no longer exist)
+      const names = wslResult.distros.map(d => d.name);
+      state.selectedDistros = state.selectedDistros.filter(n => names.includes(n));
+      if (state.selectedDistros.length === 0 && wslResult.distros.length > 0) {
+        state.selectedDistros = [wslResult.distros[0].name];
+      }
+    }
+  } catch { /* use cached state.distros */ }
+
   if (state.distros.length === 0) {
     showDistrosState('empty');
     return;
@@ -2790,6 +2804,12 @@ function stopDistrosAutoRefresh() {
 async function refreshDistrosSilent() {
   if (state.distros.length === 0 || _distrosBusy) return;
   try {
+    // Refresh distro list so Running/Stopped state is current
+    const wslResult = await window.wslCleaner.checkWsl();
+    if (wslResult.ok) {
+      state.distros = wslResult.distros;
+    }
+
     const distroNames = state.distros.map(d => d.name);
     const [comparisonData, vhdxFiles] = await Promise.all([
       window.wslCleaner.getDistroComparison(distroNames),

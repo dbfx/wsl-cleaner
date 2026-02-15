@@ -29,6 +29,8 @@
   "distro.none": "Aucune distribution",
   "distro.count": "{count} distributions sélectionnées",
   "distro.default": "par défaut",
+  "nav.section.cleaning": "Nettoyage",
+  "nav.section.tools": "Outils",
   "nav.cleaner": "Nettoyeur",
   "nav.settings": "Paramètres",
   "nav.stats": "Statistiques",

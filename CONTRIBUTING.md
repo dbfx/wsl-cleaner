@@ -17,7 +17,7 @@ wsl-cleaner/
 ├── preload.js           # contextBridge exposing window.wslCleaner API
 ├── cli.js               # Standalone CLI (node cli.js --help)
 ├── lib/
-│   ├── wsl-ops.js       # WSL commands, VHDX discovery, stale scanning, health info
+│   ├── wsl-ops.js       # WSL commands, VHDX discovery, stale scanning, health info, distro management
 │   ├── utils.js         # Pure helpers — parseWslOutput, friendlyError, etc.
 │   ├── stats-db.js      # Cleanup history persistence (JSON)
 │   └── preferences.js   # Task toggle & locale preference persistence
@@ -39,7 +39,7 @@ wsl-cleaner/
 | Layer | File(s) | Responsibility |
 |-------|---------|----------------|
 | Main process | `main.js` | Window lifecycle, IPC handlers, auto-updater events |
-| Libraries | `lib/wsl-ops.js` | WSL command execution, VHDX discovery & optimization, stale scanning, health info |
+| Libraries | `lib/wsl-ops.js` | WSL command execution, VHDX discovery & optimization, stale scanning, health info, distro export/import/clone/restart/comparison |
 | Libraries | `lib/utils.js` | Pure utility functions — output parsing, error mapping |
 | Libraries | `lib/stats-db.js`, `lib/preferences.js` | JSON-backed persistence for history and preferences |
 | Preload | `preload.js` | `contextBridge` that exposes `window.wslCleaner` to the renderer |
@@ -139,7 +139,7 @@ npm test          # Run all tests once
 npm run test:watch  # Watch mode
 ```
 
-Tests cover `lib/utils.js`, `lib/stats-db.js`, `lib/preferences.js`, `renderer/utils.js`, `renderer/i18n.js`, `renderer/tasks.js`, and `cli.js`.
+Tests cover `lib/utils.js`, `lib/stats-db.js`, `lib/preferences.js`, `lib/wsl-ops.js` (distro management exports), `renderer/utils.js`, `renderer/i18n.js`, `renderer/tasks.js`, and `cli.js`.
 
 ## Adding a New Cleanup Task
 

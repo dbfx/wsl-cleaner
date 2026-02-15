@@ -29,6 +29,8 @@
   "distro.none": "没有发行版",
   "distro.count": "选择了 {count} 个发行版",
   "distro.default": "默认",
+  "nav.section.cleaning": "清理",
+  "nav.section.tools": "工具",
   "nav.cleaner": "清理器",
   "nav.settings": "设置",
   "nav.stats": "统计",
