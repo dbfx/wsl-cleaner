@@ -239,6 +239,12 @@ ipcMain.handle('cancel-disk-scan', async () => {
   return { ok: true };
 });
 
+// ── Health info ──────────────────────────────────────────────────────────
+
+ipcMain.handle('get-health-info', async (_event, distro) => {
+  return wslOps.getHealthInfo(distro);
+});
+
 // ── Task preferences ─────────────────────────────────────────────────────────
 
 ipcMain.handle('get-task-preferences', () => {

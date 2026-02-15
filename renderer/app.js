@@ -169,6 +169,14 @@ function switchPage(pageName) {
 
   // Render disk map when navigating to it
   if (pageName === 'diskmap') renderDiskMap();
+
+  // Render health dashboard and start auto-refresh
+  if (pageName === 'health') {
+    renderHealthPage();
+    startHealthAutoRefresh();
+  } else {
+    stopHealthAutoRefresh();
+  }
 }
 
 // Wire sidebar clicks
@@ -1666,6 +1674,183 @@ async function init() {
 
 init();
 
+// ── Health Dashboard ──────────────────────────────────────────────────────
+
+const healthDistroSelect = document.getElementById('health-distro');
+const healthContent = document.getElementById('health-content');
+const healthLoading = document.getElementById('health-loading');
+const healthEmpty = document.getElementById('health-empty');
+const healthError = document.getElementById('health-error');
+const healthErrorMsg = document.getElementById('health-error-msg');
+const btnHealthRefresh = document.getElementById('btn-health-refresh');
+
+let _healthRefreshTimer = null;
+
+function populateHealthDistros() {
+  healthDistroSelect.innerHTML = '';
+  for (const d of state.distros) {
+    const opt = document.createElement('option');
+    opt.value = d.name;
+    opt.textContent = d.name;
+    if (state.selectedDistros.includes(d.name)) opt.selected = true;
+    healthDistroSelect.appendChild(opt);
+  }
+}
+
+function showHealthState(which) {
+  healthContent.classList.add('hidden');
+  healthLoading.classList.add('hidden');
+  healthEmpty.classList.add('hidden');
+  healthError.classList.add('hidden');
+  if (which === 'content') healthContent.classList.remove('hidden');
+  else if (which === 'loading') healthLoading.classList.remove('hidden');
+  else if (which === 'empty') healthEmpty.classList.remove('hidden');
+  else if (which === 'error') healthError.classList.remove('hidden');
+}
+
+async function renderHealthPage() {
+  populateHealthDistros();
+
+  const distro = healthDistroSelect.value;
+  if (!distro) {
+    showHealthState('empty');
+    return;
+  }
+
+  showHealthState('loading');
+
+  try {
+    const result = await window.wslCleaner.getHealthInfo(distro);
+    if (!result.ok) {
+      healthErrorMsg.textContent = t('health.error');
+      showHealthState('error');
+      return;
+    }
+    populateHealthData(result.data);
+    showHealthState('content');
+  } catch {
+    healthErrorMsg.textContent = t('health.error');
+    showHealthState('error');
+  }
+}
+
+function populateHealthData(data) {
+  // Summary cards
+  const kernelEl = document.getElementById('health-kernel');
+  const uptimeEl = document.getElementById('health-uptime');
+  const cpuLoadEl = document.getElementById('health-cpu-load');
+  const memSummaryEl = document.getElementById('health-mem-summary');
+
+  kernelEl.textContent = data.kernel;
+  uptimeEl.textContent = data.uptime.formatted;
+  cpuLoadEl.textContent = data.cpu.load1.toFixed(2) + ' / ' + data.cpu.cores + ' ' + t('health.cores');
+  const memUsedPct = data.memory.total > 0 ? Math.round((data.memory.used / data.memory.total) * 100) : 0;
+  memSummaryEl.textContent = memUsedPct + '%';
+
+  // Memory bars
+  const ramBar = document.getElementById('health-ram-bar');
+  const ramText = document.getElementById('health-ram-text');
+  const swapBar = document.getElementById('health-swap-bar');
+  const swapText = document.getElementById('health-swap-text');
+
+  const ramPct = data.memory.total > 0 ? Math.round((data.memory.used / data.memory.total) * 100) : 0;
+  ramBar.style.width = ramPct + '%';
+  ramBar.className = 'health-bar-fill' + (ramPct > 90 ? ' danger' : ramPct > 70 ? ' warning' : '');
+  ramText.textContent = formatBytes(data.memory.used) + ' / ' + formatBytes(data.memory.total) + ' (' + ramPct + '%)';
+
+  const swapPct = data.memory.swapTotal > 0 ? Math.round((data.memory.swapUsed / data.memory.swapTotal) * 100) : 0;
+  swapBar.style.width = swapPct + '%';
+  swapBar.className = 'health-bar-fill' + (swapPct > 90 ? ' danger' : swapPct > 70 ? ' warning' : '');
+  if (data.memory.swapTotal > 0) {
+    swapText.textContent = formatBytes(data.memory.swapUsed) + ' / ' + formatBytes(data.memory.swapTotal) + ' (' + swapPct + '%)';
+  } else {
+    swapText.textContent = t('health.noSwap');
+  }
+
+  // Disk bar
+  const diskBar = document.getElementById('health-disk-bar');
+  const diskText = document.getElementById('health-disk-text');
+
+  const diskPct = data.disk.total > 0 ? Math.round((data.disk.used / data.disk.total) * 100) : 0;
+  diskBar.style.width = diskPct + '%';
+  diskBar.className = 'health-bar-fill' + (diskPct > 90 ? ' danger' : diskPct > 70 ? ' warning' : '');
+  diskText.textContent = formatBytes(data.disk.used) + ' / ' + formatBytes(data.disk.total) + ' (' + data.disk.percent + ')';
+
+  // Network table
+  const netBody = document.getElementById('health-network-body');
+  const netEmpty = document.getElementById('health-network-empty');
+  const netTable = document.getElementById('health-network-table');
+  netBody.innerHTML = '';
+
+  if (data.network.length === 0) {
+    netTable.classList.add('hidden');
+    netEmpty.classList.remove('hidden');
+  } else {
+    netTable.classList.remove('hidden');
+    netEmpty.classList.add('hidden');
+    for (const iface of data.network) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + escapeHtml(iface.iface) + '</td><td>' + formatBytes(iface.rxBytes) + '</td><td>' + formatBytes(iface.txBytes) + '</td>';
+      netBody.appendChild(tr);
+    }
+  }
+
+  // Process table
+  const procBody = document.getElementById('health-procs-body');
+  const procEmpty = document.getElementById('health-procs-empty');
+  const procTable = document.getElementById('health-procs-table');
+  procBody.innerHTML = '';
+
+  if (data.processes.length === 0) {
+    procTable.classList.add('hidden');
+    procEmpty.classList.remove('hidden');
+  } else {
+    procTable.classList.remove('hidden');
+    procEmpty.classList.add('hidden');
+    for (const p of data.processes) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + p.pid + '</td><td>' + escapeHtml(p.user) + '</td><td>' + p.cpu.toFixed(1) + '</td><td>' + p.mem.toFixed(1) + '</td><td>' + escapeHtml(p.command) + '</td>';
+      procBody.appendChild(tr);
+    }
+  }
+}
+
+function startHealthAutoRefresh() {
+  stopHealthAutoRefresh();
+  _healthRefreshTimer = setInterval(() => {
+    if (state.currentPage === 'health' && healthDistroSelect.value) {
+      refreshHealthSilent();
+    }
+  }, 10000);
+}
+
+function stopHealthAutoRefresh() {
+  if (_healthRefreshTimer) {
+    clearInterval(_healthRefreshTimer);
+    _healthRefreshTimer = null;
+  }
+}
+
+/** Silent refresh — doesn't show the loading spinner (avoids flicker). */
+async function refreshHealthSilent() {
+  const distro = healthDistroSelect.value;
+  if (!distro) return;
+
+  try {
+    const result = await window.wslCleaner.getHealthInfo(distro);
+    if (result.ok && state.currentPage === 'health') {
+      populateHealthData(result.data);
+      showHealthState('content');
+    }
+  } catch {
+    // Silently ignore auto-refresh errors
+  }
+}
+
+btnHealthRefresh.addEventListener('click', () => renderHealthPage());
+
+healthDistroSelect.addEventListener('change', () => renderHealthPage());
+
 // ── Language selector ──────────────────────────────────────────────────────
 
 const localeSelect = document.getElementById('locale-select');
@@ -1689,6 +1874,7 @@ localeSelect.addEventListener('change', async () => {
   updateVhdxDisplay();
   if (state.currentPage === 'stats') renderStatsPage();
   if (state.currentPage === 'diskmap') renderDiskMap();
+  if (state.currentPage === 'health') renderHealthPage();
 });
 
 document.addEventListener('locale-changed', () => {
@@ -1700,4 +1886,5 @@ document.addEventListener('locale-changed', () => {
     btnSimpleGoLabel.innerHTML = state.compactEnabled ? t('simple.cleanCompact') : t('simple.clean');
   }
   if (state.currentPage === 'diskmap') renderDiskMap();
+  if (state.currentPage === 'health') renderHealthPage();
 });

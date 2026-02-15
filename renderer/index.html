@@ -98,6 +98,12 @@
             </svg>
             <span data-i18n="nav.diskmap">Disk Map</span>
           </a>
+          <a class="nav-item" data-page="health">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+            </svg>
+            <span data-i18n="nav.health">Health</span>
+          </a>
           <div class="nav-spacer"></div>
           <a class="nav-item" data-page="about">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -397,6 +403,155 @@
               <div class="spinner"></div>
               <p data-i18n="diskmap.scanning">Scanning filesystem...</p>
               <p class="diskmap-scanning-sub" data-i18n="diskmap.scanningDesc">Running du inside WSL. This may take a moment for large filesystems.</p>
+            </div>
+          </div>
+
+          <!-- ════ Health Page ════ -->
+          <div id="page-health" class="page hidden">
+            <div class="health-toolbar">
+              <div class="health-toolbar-left">
+                <label class="health-label" data-i18n="health.distro">Distro</label>
+                <select id="health-distro" class="health-select"></select>
+              </div>
+              <div class="health-toolbar-right">
+                <button id="btn-health-refresh" class="btn-outline btn-health-refresh">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                  </svg>
+                  <span data-i18n="health.refresh">Refresh</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Summary cards -->
+            <div id="health-content" class="hidden">
+              <div class="health-grid">
+                <div class="health-card">
+                  <div class="health-card-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="4" y="4" width="16" height="16" rx="2"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="12" y1="4" x2="12" y2="20"/>
+                    </svg>
+                  </div>
+                  <div class="health-card-value" id="health-kernel">--</div>
+                  <div class="health-card-label" data-i18n="health.kernel">Kernel</div>
+                </div>
+                <div class="health-card">
+                  <div class="health-card-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+                    </svg>
+                  </div>
+                  <div class="health-card-value" id="health-uptime">--</div>
+                  <div class="health-card-label" data-i18n="health.uptime">Uptime</div>
+                </div>
+                <div class="health-card">
+                  <div class="health-card-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/>
+                    </svg>
+                  </div>
+                  <div class="health-card-value" id="health-cpu-load">--</div>
+                  <div class="health-card-label" data-i18n="health.cpuLoad">CPU Load</div>
+                </div>
+                <div class="health-card">
+                  <div class="health-card-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M22 12H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+                    </svg>
+                  </div>
+                  <div class="health-card-value" id="health-mem-summary">--</div>
+                  <div class="health-card-label" data-i18n="health.memory">Memory</div>
+                </div>
+              </div>
+
+              <!-- Memory detail -->
+              <div class="health-detail-card">
+                <div class="health-detail-header" data-i18n="health.memUsage">Memory Usage</div>
+                <div class="health-detail-body">
+                  <div class="health-bar-row">
+                    <span class="health-bar-label">RAM</span>
+                    <div class="health-bar"><div class="health-bar-fill" id="health-ram-bar"></div></div>
+                    <span class="health-bar-value" id="health-ram-text">--</span>
+                  </div>
+                  <div class="health-bar-row">
+                    <span class="health-bar-label" data-i18n="health.swap">Swap</span>
+                    <div class="health-bar"><div class="health-bar-fill" id="health-swap-bar"></div></div>
+                    <span class="health-bar-value" id="health-swap-text">--</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Disk detail -->
+              <div class="health-detail-card">
+                <div class="health-detail-header" data-i18n="health.disk">Disk Usage</div>
+                <div class="health-detail-body">
+                  <div class="health-bar-row">
+                    <span class="health-bar-label">/</span>
+                    <div class="health-bar"><div class="health-bar-fill" id="health-disk-bar"></div></div>
+                    <span class="health-bar-value" id="health-disk-text">--</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Network -->
+              <div class="health-detail-card">
+                <div class="health-detail-header" data-i18n="health.network">Network</div>
+                <div class="health-detail-body">
+                  <table class="health-table" id="health-network-table">
+                    <thead>
+                      <tr>
+                        <th data-i18n="health.iface">Interface</th>
+                        <th data-i18n="health.rx">RX</th>
+                        <th data-i18n="health.tx">TX</th>
+                      </tr>
+                    </thead>
+                    <tbody id="health-network-body"></tbody>
+                  </table>
+                  <div id="health-network-empty" class="health-table-empty hidden" data-i18n="health.noNetwork">No network interfaces found.</div>
+                </div>
+              </div>
+
+              <!-- Processes -->
+              <div class="health-detail-card">
+                <div class="health-detail-header" data-i18n="health.processes">Top Processes</div>
+                <div class="health-detail-body">
+                  <table class="health-table" id="health-procs-table">
+                    <thead>
+                      <tr>
+                        <th data-i18n="health.pid">PID</th>
+                        <th data-i18n="health.user">User</th>
+                        <th data-i18n="health.cpu">CPU%</th>
+                        <th data-i18n="health.mem">Mem%</th>
+                        <th data-i18n="health.command">Command</th>
+                      </tr>
+                    </thead>
+                    <tbody id="health-procs-body"></tbody>
+                  </table>
+                  <div id="health-procs-empty" class="health-table-empty hidden" data-i18n="health.noProcesses">No process data available.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Loading state -->
+            <div id="health-loading" class="health-loading hidden">
+              <div class="spinner"></div>
+              <p data-i18n="health.loading">Collecting system metrics...</p>
+            </div>
+
+            <!-- Empty state -->
+            <div id="health-empty" class="health-empty">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+              </svg>
+              <p data-i18n="health.empty">Select a distro to view health metrics.</p>
+            </div>
+
+            <!-- Error state -->
+            <div id="health-error" class="health-error hidden">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+              <p id="health-error-msg" data-i18n="health.error">Could not retrieve health data. Make sure the distro is running.</p>
             </div>
           </div>
 

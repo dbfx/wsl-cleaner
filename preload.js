@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('wslCleaner', {
   scanDiskUsage: (opts) => ipcRenderer.invoke('scan-disk-usage', opts),
   cancelDiskScan: () => ipcRenderer.invoke('cancel-disk-scan'),
 
+  // Health info
+  getHealthInfo: (distro) => ipcRenderer.invoke('get-health-info', distro),
+
   // App info & external URLs
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   openExternal: (url) => ipcRenderer.invoke('open-external-url', url),

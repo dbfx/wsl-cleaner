@@ -82,6 +82,9 @@ Finds old dependency, build, and cache directories that haven't been modified in
 
 `node_modules`, `vendor`, `__pycache__`, `.next`, `.nuxt`, `.turbo`, `.yarn`, `target`, `.gradle`, `.tox`, `.pytest_cache`, `.mypy_cache`, `dist`, `.parcel-cache`, `.cache`, `.venv`, `venv`, `elm-stuff`, `.terraform`, `.serverless`, `.nx`
 
+### Health Dashboard
+Real-time system metrics for your WSL distributions. Displays kernel version, uptime, CPU load, memory and swap usage (with visual bars), disk usage, network interface statistics, and top processes — turning the app into a lightweight WSL management tool. Auto-refreshes every 10 seconds while active.
+
 ### Disk Map (Treemap Visualizer)
 Interactive treemap (WinDirStat-style) that shows exactly what's consuming space inside your WSL filesystem. Runs `du` in the background, renders a clickable chart with drill-down navigation and breadcrumbs. Automatically excludes Windows mounts (`/mnt`).
 
@@ -147,7 +150,7 @@ wsl-cleaner/
   preload.js           # Secure bridge (contextBridge → window.wslCleaner)
   cli.js               # Standalone CLI (node cli.js --help)
   lib/
-    wsl-ops.js         # WSL commands, VHDX discovery, stale scanning
+    wsl-ops.js         # WSL commands, VHDX discovery, stale scanning, health info
     utils.js           # Pure helpers — parseWslOutput, friendlyError, etc.
     stats-db.js        # Cleanup history persistence (JSON)
     preferences.js     # Task toggle & locale preference persistence

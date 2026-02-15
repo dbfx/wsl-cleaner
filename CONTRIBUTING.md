@@ -17,7 +17,7 @@ wsl-cleaner/
 ├── preload.js           # contextBridge exposing window.wslCleaner API
 ├── cli.js               # Standalone CLI (node cli.js --help)
 ├── lib/
-│   ├── wsl-ops.js       # WSL commands, VHDX discovery, stale scanning
+│   ├── wsl-ops.js       # WSL commands, VHDX discovery, stale scanning, health info
 │   ├── utils.js         # Pure helpers — parseWslOutput, friendlyError, etc.
 │   ├── stats-db.js      # Cleanup history persistence (JSON)
 │   └── preferences.js   # Task toggle & locale preference persistence
@@ -39,11 +39,11 @@ wsl-cleaner/
 | Layer | File(s) | Responsibility |
 |-------|---------|----------------|
 | Main process | `main.js` | Window lifecycle, IPC handlers, auto-updater events |
-| Libraries | `lib/wsl-ops.js` | WSL command execution, VHDX discovery & optimization, stale scanning |
+| Libraries | `lib/wsl-ops.js` | WSL command execution, VHDX discovery & optimization, stale scanning, health info |
 | Libraries | `lib/utils.js` | Pure utility functions — output parsing, error mapping |
 | Libraries | `lib/stats-db.js`, `lib/preferences.js` | JSON-backed persistence for history and preferences |
 | Preload | `preload.js` | `contextBridge` that exposes `window.wslCleaner` to the renderer |
-| Renderer | `renderer/app.js` | All UI logic — navigation, task cards, cleanup execution, charts |
+| Renderer | `renderer/app.js` | All UI logic — navigation, task cards, cleanup execution, health dashboard, charts |
 | Renderer | `renderer/tasks.js` | `TASKS` array defining all 40+ cleanup tasks |
 | Renderer | `renderer/treemap.js` | Squarified treemap layout algorithm and DOM-based renderer |
 | Renderer | `renderer/i18n.js` | i18n runtime — `t()`, `tp()`, `tError()`, `applyI18n()` |

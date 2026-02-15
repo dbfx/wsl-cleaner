@@ -6,6 +6,7 @@ const VALID_TOOL_NAMES = [
   'apt', 'dnf', 'npm', 'yarn', 'pnpm', 'go', 'pip', 'pip3',
   'composer', 'snap', 'docker', 'mvn', 'gradle', 'conda',
   'gem', 'dotnet', 'deno', 'bun', 'dart', 'brew', 'ccache', 'bazel',
+  'terraform', 'minikube', 'sbt', 'conan',
 ];
 
 describe('TASKS array integrity', () => {
