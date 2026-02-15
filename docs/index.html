@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WSL Cleaner — Clean, Optimize & Compact WSL 2 Virtual Disks</title>
+  <meta name="description" content="Free, open-source desktop app to clean, optimize, and compact WSL 2 virtual disks. Reclaim 10-100+ GB of SSD space with one click.">
+  <meta property="og:title" content="WSL Cleaner">
+  <meta property="og:description" content="Clean, optimize, and compact WSL 2 virtual disks. Reclaim 10-100+ GB of SSD space.">
+  <meta property="og:image" content="images/combo.png">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="WSL Cleaner">
+  <meta name="twitter:description" content="Clean, optimize, and compact WSL 2 virtual disks. Reclaim 10-100+ GB of SSD space.">
+  <meta name="twitter:image" content="images/combo.png">
+  <link rel="icon" href="images/favicon.ico">
+  <link rel="preload" as="image" href="images/combo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ── Navbar ──────────────────────────────────────────────────────────── -->
+  <nav class="navbar">
+    <a href="#" class="nav-brand">
+      <svg viewBox="0 0 64 64" width="32" height="32" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6" y="8" width="52" height="44" rx="6" stroke="#00d4aa" stroke-width="2"/>
+        <circle cx="16" cy="17" r="2" stroke="#00d4aa" stroke-width="1.5"/>
+        <circle cx="24" cy="17" r="2" stroke="#00d4aa" stroke-width="1.5"/>
+        <circle cx="32" cy="17" r="2" stroke="#00d4aa" stroke-width="1.5"/>
+        <path d="M16 28l6 4-6 4" stroke="#00d4aa" stroke-width="2"/>
+        <line x1="28" y1="36" x2="44" y2="36" stroke="#00d4aa" stroke-width="2"/>
+        <path d="M46 24l1.5 3 3 1.5-3 1.5-1.5 3-1.5-3-3-1.5 3-1.5z" stroke="#00d4aa" stroke-width="1.5"/>
+      </svg>
+      WSL Cleaner
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#download">Download</a></li>
+      <li><a href="https://github.com/dbfx/wsl-cleaner" target="_blank" rel="noopener">GitHub</a></li>
+    </ul>
+    <button class="nav-hamburger" aria-label="Menu">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 6h18M3 12h18M3 18h18"/>
+      </svg>
+    </button>
+  </nav>
+
+  <div class="nav-mobile">
+    <a href="#features">Features</a>
+    <a href="#download">Download</a>
+    <a href="https://github.com/dbfx/wsl-cleaner" target="_blank" rel="noopener">GitHub</a>
+  </div>
+
+  <!-- ── Hero ────────────────────────────────────────────────────────────── -->
+  <section class="hero" id="hero">
+    <div class="hero-glow"></div>
+    <div class="hero-icon">
+      <svg viewBox="0 0 64 64" width="80" height="80" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6" y="8" width="52" height="44" rx="6" stroke="#00d4aa" stroke-width="2"/>
+        <circle cx="16" cy="17" r="2" stroke="#00d4aa" stroke-width="1.5"/>
+        <circle cx="24" cy="17" r="2" stroke="#00d4aa" stroke-width="1.5"/>
+        <circle cx="32" cy="17" r="2" stroke="#00d4aa" stroke-width="1.5"/>
+        <path d="M16 28l6 4-6 4" stroke="#00d4aa" stroke-width="2"/>
+        <line x1="28" y1="36" x2="44" y2="36" stroke="#00d4aa" stroke-width="2"/>
+        <path d="M46 24l1.5 3 3 1.5-3 1.5-1.5 3-1.5-3-3-1.5 3-1.5z" stroke="#00d4aa" stroke-width="1.5"/>
+      </svg>
+    </div>
+    <h1>WSL Cleaner</h1>
+    <p class="hero-tagline">Clean &middot; Optimize &middot; Compact</p>
+    <p class="hero-subtitle">Reclaim 10&ndash;100+ GB from your WSL 2 virtual disks. One click, 60+ cleanup tasks, real-time monitoring.</p>
+    <div class="hero-buttons">
+      <a href="https://github.com/dbfx/wsl-cleaner/releases/latest" class="btn btn-primary" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download v1.2.0
+      </a>
+      <a href="https://github.com/dbfx/wsl-cleaner" class="btn btn-outline" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+    <p class="hero-meta">Free &amp; open source &middot; MIT License &middot; Windows 10/11</p>
+    <div class="hero-banner">
+      <img src="images/combo.png" alt="WSL Cleaner application showing multiple features" width="900" height="506">
+    </div>
+  </section>
+
+  <!-- ── Features ────────────────────────────────────────────────────────── -->
+  <section class="section" id="features">
+    <h2 class="section-title reveal">Features</h2>
+    <p class="section-subtitle reveal">Everything you need to manage, monitor, and optimize your WSL 2 environment.</p>
+
+    <!-- Tab bar -->
+    <div class="tab-bar reveal">
+      <button class="tab-btn active" data-tab="cleaner">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>
+        Cleaner
+      </button>
+      <button class="tab-btn" data-tab="settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </button>
+      <button class="tab-btn" data-tab="stats">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Stats
+      </button>
+      <button class="tab-btn" data-tab="diskmap">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="4"/><rect x="14" y="10" width="7" height="3"/><rect x="3" y="13" width="7" height="8"/><rect x="14" y="16" width="7" height="5"/></svg>
+        Disk Map
+      </button>
+      <button class="tab-btn" data-tab="health">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+        Health
+      </button>
+      <button class="tab-btn" data-tab="distros">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/></svg>
+        Distros
+      </button>
+      <button class="tab-btn" data-tab="config">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        Config
+      </button>
+      <button class="tab-btn" data-tab="startup">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+        Startup
+      </button>
+      <button class="tab-btn" data-tab="tray">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Tray &amp; Alerts
+      </button>
+    </div>
+
+    <!-- Tab panels -->
+    <div class="tab-panels">
+
+      <!-- Cleaner -->
+      <div class="tab-panel active" id="panel-cleaner">
+        <div class="feature-info">
+          <h3>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>
+            Cleaner
+          </h3>
+          <p class="feature-desc">One-click Clean &amp; Compact runs all enabled tasks, removes stale directories, trims the filesystem, and compacts your VHDX. Watch progress in real time with a live timer and see before/after disk size comparison.</p>
+          <ul>
+            <li>Run all 60+ cleanup tasks in one click</li>
+            <li>Automatic stale directory detection and removal</li>
+            <li>VHDX compaction with filesystem TRIM</li>
+            <li>Before/after disk size comparison</li>
+            <li>Clean-only mode for faster passes without restart</li>
+          </ul>
+        </div>
+        <div class="screenshot-frame">
+          <img src="images/cleanup.png" alt="WSL Cleaner - Cleanup progress view" loading="lazy" width="800" height="500">
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="tab-panel" id="panel-settings">
+        <div class="feature-info">
+          <h3>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Cleanup Settings
+          </h3>
+          <p class="feature-desc">Full control over 60+ cleanup tasks organized into categories. Each task shows what it does and estimated reclaimable space. Auto-detects installed tools and only shows relevant tasks.</p>
+          <ul>
+            <li>System, editor, package manager, and framework categories</li>
+            <li>Stale directory scanner for node_modules, vendor, __pycache__</li>
+            <li>Estimated space savings per task</li>
+            <li>Real-time search to filter tasks</li>
+            <li>Aggressive tasks (disabled by default) for deep cleaning</li>
+          </ul>
+        </div>
+        <div class="screenshot-frame">
+          <img src="images/clean-settings.png" alt="WSL Cleaner - Cleanup task settings" loading="lazy" width="800" height="500">
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="tab-panel" id="panel-stats">
+        <div class="feature-info">
+          <h3>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Cleanup Stats
+          </h3>
+          <p class="feature-desc">Track your cleanup history with interactive charts. See total space saved, average per session, your cleanup streak, and detailed breakdowns over time.</p>
+          <ul>
+            <li>Total space saved and cleanup count</li>
+            <li>Disk size over time line chart</li>
+            <li>Space saved per session bar chart</li>
+            <li>Session history table with dates and durations</li>
+            <li>Cleanup streak tracking</li>
+          </ul>
+        </div>
+        <div class="screenshot-frame">
+          <img src="images/stats.png" alt="WSL Cleaner - Cleanup statistics" loading="lazy" width="800" height="500">
+        </div>
+      </div>
+
+      <!-- Disk Map -->
+      <div class="tab-panel" id="panel-diskmap">
+        <div class="feature-info">
+          <h3>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="4"/><rect x="14" y="10" width="7" height="3"/><rect x="3" y="13" width="7" height="8"/><rect x="14" y="16" width="7" height="5"/></svg>
+            Disk Map
+          </h3>
+          <p class="feature-desc">WinDirStat-style interactive treemap showing exactly what consumes space inside WSL. Click to drill down into directories, hover for details, and navigate with breadcrumbs.</p>
+          <ul>
+            <li>Color-coded squarified treemap visualization</li>
+            <li>Click-to-drill-down navigation</li>
+            <li>Hover tooltips with path, size, and percentage</li>
+            <li>Configurable scan depth (2&ndash;5 levels)</li>
+            <li>Excludes Windows mounts to focus on WSL usage</li>
+          </ul>
+        </div>
+        <div class="screenshot-frame">
+          <img src="images/disk-map.png" alt="WSL Cleaner - Disk map treemap" loading="lazy" width="800" height="500">
+        </div>
+      </div>
+
+      <!-- Health -->
+      <div class="tab-panel" id="panel-health">
+        <div class="feature-info">
+          <h3>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            Health Dashboard
+          </h3>
+          <p class="feature-desc">Real-time system dashboard monitoring CPU, memory, disk, networking, processes, and services. Auto-refreshes every 10 seconds with visual progress bars and detailed metrics.</p>
+          <ul>
+            <li>CPU load, memory, and swap usage with visual bars</li>
+            <li>Network interface stats and DNS status</li>
+            <li>Top processes by CPU and zombie detection</li>
+            <li>Docker container counts and systemd state</li>
+            <li>WSL config limits vs actual usage display</li>
+          </ul>
+        </div>
+        <div class="screenshot-frame">
+          <img src="images/health.png" alt="WSL Cleaner - Health dashboard" loading="lazy" width="800" height="500">
+        </div>
+      </div>
+
+      <!-- Distros -->
+      <div class="tab-panel" id="panel-distros">
+        <div class="feature-info">
+          <h3>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/></svg>
+            Distro Manager
+          </h3>
+          <p class="feature-desc">Manage all WSL distributions from one panel. Compare VHDX sizes, package counts, and uptime at a glance. Export, import, clone, and restart distros with a single click.</p>
+          <ul>
+            <li>Comparison table with size, packages, and uptime</li>
+            <li>Export distro to .tar backup archive</li>
+            <li>Import distro from .tar with custom name and location</li>
+            <li>One-click clone and restart</li>
+            <li>Real-time activity log for operations</li>
+          </ul>
+        </div>
+        <div class="screenshot-frame">
+          <img src="images/distros.png" alt="WSL Cleaner - Distro manager" loading="lazy" width="800" height="500">
+        </div>
+      </div>
+
+      <!-- Config -->
+      <div class="tab-panel" id="panel-config">
+        <div class="feature-info">
+          <h3>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+            WSL Config Editor
+          </h3>
+          <p class="feature-desc">GUI editor for .wslconfig (global) and per-distro wsl.conf. One-click optimize button fills recommended values based on your hardware. Auto-backup before every save.</p>
+          <ul>
+            <li>Memory, CPU, swap, and networking configuration</li>
+            <li>Per-distro settings with distro selector</li>
+            <li>One-click optimize with hardware-aware defaults</li>
+            <li>Field validation and helpful descriptions</li>
+            <li>Automatic .bak backup before saving</li>
+          </ul>
+        </div>
+        <div class="screenshot-frame">
+          <img src="images/wsl-config.png" alt="WSL Cleaner - Config editor" loading="lazy" width="800" height="500">
+        </div>
+      </div>
+
+      <!-- Startup -->
+      <div class="tab-panel" id="panel-startup">
+        <div class="feature-info">
+          <h3>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+            Startup Manager
+          </h3>
+          <p class="feature-desc">View and manage systemd services from a clean interface. Enable or disable services, search and filter by state, and expand details to see dependencies and PID info.</p>
+          <ul>
+            <li>Service table with state and active status</li>
+            <li>Enable/disable toggles for each service</li>
+            <li>Real-time search and quick-filter buttons</li>
+            <li>Expandable details with dependencies and paths</li>
+            <li>Init system detection with setup hints</li>
+          </ul>
+        </div>
+        <div class="screenshot-frame">
+          <img src="images/startups.png" alt="WSL Cleaner - Startup manager" loading="lazy" width="800" height="500">
+        </div>
+      </div>
+
+      <!-- Tray & Alerts -->
+      <div class="tab-panel" id="panel-tray">
+        <div class="feature-info">
+          <h3>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            Tray &amp; Alerts
+          </h3>
+          <p class="feature-desc">Background monitoring via system tray with a live tooltip showing disk size, RAM usage, and Docker stats. Six configurable alert types with customizable thresholds and smart notifications.</p>
+          <ul>
+            <li>System tray icon with live stats tooltip</li>
+            <li>Minimize-to-tray for background monitoring</li>
+            <li>VHDX size, memory, Docker, and DNS alerts</li>
+            <li>Zombie process and failed unit detection</li>
+            <li>Configurable monitoring intervals (10&ndash;600s)</li>
+          </ul>
+        </div>
+        <div class="screenshot-frame">
+          <img src="images/tray-alerts.png" alt="WSL Cleaner - Tray and alert settings" loading="lazy" width="800" height="500">
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Stats Strip ─────────────────────────────────────────────────────── -->
+  <div class="stats-strip reveal">
+    <div class="stat-card">
+      <div class="stat-number">60+</div>
+      <div class="stat-label">Cleanup Tasks</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">9</div>
+      <div class="stat-label">Integrated Tools</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">7</div>
+      <div class="stat-label">Languages</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">MIT</div>
+      <div class="stat-label">Open Source</div>
+    </div>
+  </div>
+
+  <!-- ── Download CTA ────────────────────────────────────────────────────── -->
+  <section class="cta" id="download">
+    <h2 class="reveal">Ready to Reclaim Your Disk Space?</h2>
+    <p class="cta-subtitle reveal">Free, open source, and built for developers.</p>
+    <a href="https://github.com/dbfx/wsl-cleaner/releases/latest" class="btn btn-primary reveal" target="_blank" rel="noopener">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download v1.2.0
+    </a>
+    <p class="cta-requirements reveal">Requires Windows 10/11 with WSL 2 and Hyper-V enabled</p>
+    <div class="cta-links reveal">
+      <a href="https://github.com/dbfx/wsl-cleaner" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/dbfx/wsl-cleaner/releases" target="_blank" rel="noopener">All Releases</a>
+      <a href="https://github.com/dbfx/wsl-cleaner/issues" target="_blank" rel="noopener">Report an Issue</a>
+    </div>
+  </section>
+
+  <!-- ── Footer ──────────────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <span>WSL Cleaner v1.2.0 &mdash; Made by <a href="https://github.com/dbfx" target="_blank" rel="noopener">dbfx</a></span>
+    <div class="footer-links">
+      <a href="https://github.com/dbfx/wsl-cleaner" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/dbfx/wsl-cleaner/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+      <a href="https://github.com/dbfx/wsl-cleaner/issues" target="_blank" rel="noopener">Issues</a>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('wslCleaner', {
   // Disk compaction
   findVhdx: (distro) => ipcRenderer.invoke('find-vhdx', distro),
   getFileSize: (filePath) => ipcRenderer.invoke('get-file-size', filePath),
+  getAvailableSpace: (distro) => ipcRenderer.invoke('get-available-space', distro),
   runWslCommand: (opts) => ipcRenderer.invoke('run-wsl-command', opts),
   optimizeVhdx: (opts) => ipcRenderer.invoke('optimize-vhdx', opts),
 
@@ -35,6 +36,19 @@ contextBridge.exposeInMainWorld('wslCleaner', {
 
   // Health info
   getHealthInfo: (distro) => ipcRenderer.invoke('get-health-info', distro),
+
+  // Startup Manager
+  getStartupServices: (distro) => ipcRenderer.invoke('get-startup-services', distro),
+  setServiceState: (opts) => ipcRenderer.invoke('set-service-state', opts),
+  getServiceDetails: (opts) => ipcRenderer.invoke('get-service-details', opts),
+  getRcLocal: (distro) => ipcRenderer.invoke('get-rc-local', distro),
+
+  // WSL Config Editor
+  getSystemResources: () => ipcRenderer.invoke('get-system-resources'),
+  readWslConfig: () => ipcRenderer.invoke('read-wslconfig'),
+  writeWslConfig: (config) => ipcRenderer.invoke('write-wslconfig', config),
+  readWslConf: (distro) => ipcRenderer.invoke('read-wslconf', distro),
+  writeWslConf: (distro, config) => ipcRenderer.invoke('write-wslconf', distro, config),
 
   // Distro management
   exportDistro: (opts) => ipcRenderer.invoke('export-distro', opts),

@@ -172,6 +172,19 @@
             </svg>
             <span data-i18n="nav.distros">Distros</span>
           </a>
+          <div class="nav-section-label" data-i18n="nav.section.wslSettings">WSL Settings</div>
+          <a class="nav-item" data-page="config">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+            </svg>
+            <span data-i18n="nav.config">WSL Config</span>
+          </a>
+          <a class="nav-item" data-page="startup">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
+            </svg>
+            <span data-i18n="nav.startup">Startup</span>
+          </a>
           <a class="nav-item" data-page="tray">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -251,6 +264,7 @@
                 <div class="step-item" data-step="cleanup">
                   <div class="step-icon-slot"></div>
                   <span class="step-label" data-i18n="simple.step.cleanup">Running cleanup tasks...</span>
+                  <span class="step-sub" id="cleanup-step-sub"></span>
                 </div>
                 <div class="step-item" data-step="fstrim">
                   <div class="step-icon-slot"></div>
@@ -272,6 +286,17 @@
                   <div class="step-icon-slot"></div>
                   <span class="step-label" data-i18n="simple.step.restart">Restarting WSL...</span>
                 </div>
+              </div>
+
+              <!-- Live output log -->
+              <div id="cleaner-log-section" class="cleaner-log-section hidden">
+                <div class="cleaner-log-header">
+                  <span data-i18n="simple.logTitle">Live Output</span>
+                  <button id="cleaner-log-toggle" class="btn-icon-sm" type="button" title="Toggle log">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,9 12,15 18,9"/></svg>
+                  </button>
+                </div>
+                <pre id="cleaner-log" class="cleaner-log"></pre>
               </div>
 
               <!-- Completion view (replaces everything when done) -->
@@ -329,6 +354,15 @@
                     <span id="result-duration" class="result-stat-value">0:00</span>
                     <span class="result-stat-label">Duration</span>
                   </div>
+                </div>
+
+                <!-- Per-task space savings breakdown -->
+                <div id="result-breakdown" class="chart-card result-breakdown hidden">
+                  <div class="chart-header" data-i18n="result.breakdownTitle">Space Freed by Task</div>
+                  <div class="chart-body result-breakdown-body">
+                    <canvas id="chart-task-breakdown"></canvas>
+                  </div>
+                  <div id="result-breakdown-empty" class="chart-empty hidden" data-i18n="result.breakdownEmpty">No individual task freed measurable space.</div>
                 </div>
 
                 <button id="btn-clean-again" class="btn-primary btn-simple-go">
@@ -811,6 +845,415 @@
             </div>
           </div>
 
+          <!-- ════ Config Editor Page ════ -->
+          <div id="page-config" class="page hidden">
+            <div class="config-toolbar">
+              <div class="config-toolbar-left">
+                <h2 class="section-title" style="margin:0" data-i18n="config.title">WSL Config Editor</h2>
+              </div>
+              <div class="config-toolbar-right">
+                <div class="config-tabs">
+                  <button class="config-tab active" data-tab="wslconfig" data-i18n="config.tabWslconfig">.wslconfig</button>
+                  <button class="config-tab" data-tab="wslconf" data-i18n="config.tabWslconf">wsl.conf</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Restart banner -->
+            <div id="config-restart-banner" class="config-restart-banner hidden">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <span data-i18n="config.restartNeeded">Changes require a WSL restart to take effect.</span>
+              <button id="config-restart-btn" class="btn-outline btn-sm" data-i18n="config.restartNow">Restart WSL</button>
+            </div>
+
+            <!-- .wslconfig panel -->
+            <div id="config-wslconfig-panel" class="config-panel">
+              <div class="config-info-bar" id="config-wslconfig-desc" data-i18n-html="config.wslconfigDesc">
+                Global settings that apply to all WSL 2 distros.
+              </div>
+
+              <div class="config-section">
+                <div class="config-section-header">[wsl2]</div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.memory">Memory Limit</label>
+                    <span class="config-field-desc" data-i18n="config.field.memory.desc">Maximum RAM allocated to WSL 2</span>
+                  </div>
+                  <div class="config-field-control">
+                    <input type="text" id="cfg-wsl2-memory" class="config-input" placeholder="4GB" />
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.processors">Processors</label>
+                    <span class="config-field-desc" data-i18n="config.field.processors.desc">Number of logical CPU cores</span>
+                  </div>
+                  <div class="config-field-control">
+                    <input type="number" id="cfg-wsl2-processors" class="config-input config-input-sm" min="1" placeholder="4" />
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.swap">Swap Size</label>
+                    <span class="config-field-desc" data-i18n="config.field.swap.desc">Swap space size or 0 to disable</span>
+                  </div>
+                  <div class="config-field-control">
+                    <input type="text" id="cfg-wsl2-swap" class="config-input" placeholder="2GB" />
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.swapFile">Swap File Path</label>
+                    <span class="config-field-desc" data-i18n="config.field.swapFile.desc">Custom Windows path for the swap file</span>
+                  </div>
+                  <div class="config-field-control">
+                    <input type="text" id="cfg-wsl2-swapFile" class="config-input config-input-wide" placeholder="" />
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.kernelCommandLine">Kernel Command Line</label>
+                    <span class="config-field-desc" data-i18n="config.field.kernelCommandLine.desc">Extra kernel boot parameters</span>
+                  </div>
+                  <div class="config-field-control">
+                    <input type="text" id="cfg-wsl2-kernelCommandLine" class="config-input config-input-wide" placeholder="" />
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.localhostForwarding">Localhost Forwarding</label>
+                    <span class="config-field-desc" data-i18n="config.field.localhostForwarding.desc">Forward WSL ports to the host</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-wsl2-localhostForwarding" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.networkingMode">Networking Mode</label>
+                    <span class="config-field-desc" data-i18n="config.field.networkingMode.desc">NAT or Mirrored networking</span>
+                  </div>
+                  <div class="config-field-control">
+                    <select id="cfg-wsl2-networkingMode" class="config-select">
+                      <option value="">—</option>
+                      <option value="nat">NAT</option>
+                      <option value="mirrored">Mirrored</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.dnsTunneling">DNS Tunneling</label>
+                    <span class="config-field-desc" data-i18n="config.field.dnsTunneling.desc">Better VPN compatibility</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-wsl2-dnsTunneling" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.dnsProxy">DNS Proxy</label>
+                    <span class="config-field-desc" data-i18n="config.field.dnsProxy.desc">Proxy DNS through Windows</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-wsl2-dnsProxy" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.autoProxy">Auto Proxy</label>
+                    <span class="config-field-desc" data-i18n="config.field.autoProxy.desc">Inherit host proxy settings</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-wsl2-autoProxy" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.firewall">Firewall</label>
+                    <span class="config-field-desc" data-i18n="config.field.firewall.desc">Apply Windows Firewall rules</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-wsl2-firewall" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.autoMemoryReclaim">Auto Memory Reclaim</label>
+                    <span class="config-field-desc" data-i18n="config.field.autoMemoryReclaim.desc">Return unused memory to host</span>
+                  </div>
+                  <div class="config-field-control">
+                    <select id="cfg-wsl2-autoMemoryReclaim" class="config-select">
+                      <option value="">—</option>
+                      <option value="disabled">Disabled</option>
+                      <option value="gradual">Gradual</option>
+                      <option value="dropcache">Drop Cache</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.sparseVhd">Sparse VHD</label>
+                    <span class="config-field-desc" data-i18n="config.field.sparseVhd.desc">Save disk space automatically</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-wsl2-sparseVhd" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.pageReporting">Page Reporting</label>
+                    <span class="config-field-desc" data-i18n="config.field.pageReporting.desc">Report unused memory pages</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-wsl2-pageReporting" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.nestedVirtualization">Nested Virtualization</label>
+                    <span class="config-field-desc" data-i18n="config.field.nestedVirtualization.desc">VMs inside WSL 2</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-wsl2-nestedVirtualization" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.vmIdleTimeout">VM Idle Timeout</label>
+                    <span class="config-field-desc" data-i18n="config.field.vmIdleTimeout.desc">Milliseconds before VM shuts down</span>
+                  </div>
+                  <div class="config-field-control">
+                    <input type="number" id="cfg-wsl2-vmIdleTimeout" class="config-input config-input-sm" min="0" placeholder="" />
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.guiApplications">GUI Applications</label>
+                    <span class="config-field-desc" data-i18n="config.field.guiApplications.desc">Enable WSLg</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-wsl2-guiApplications" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.debugConsole">Debug Console</label>
+                    <span class="config-field-desc" data-i18n="config.field.debugConsole.desc">Show debug console on start</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-wsl2-debugConsole" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="config-actions">
+                <button id="config-wslconfig-optimize" class="btn-outline config-action-btn" data-i18n="config.optimize">Optimize</button>
+                <button id="config-wslconfig-reset" class="btn-outline config-action-btn" data-i18n="config.reset">Reset</button>
+                <button id="config-wslconfig-save" class="btn-primary config-action-btn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/>
+                  </svg>
+                  <span data-i18n="config.save">Save</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- wsl.conf panel -->
+            <div id="config-wslconf-panel" class="config-panel hidden">
+              <div class="config-info-bar" data-i18n-html="config.wslconfDesc">
+                Per-distro settings. Located at /etc/wsl.conf inside the selected distro.
+              </div>
+
+              <div class="config-distro-bar">
+                <label class="config-distro-label" data-i18n="config.distro">Distro</label>
+                <select id="config-distro-select" class="health-select"></select>
+              </div>
+
+              <!-- automount -->
+              <div class="config-section">
+                <div class="config-section-header">[automount]</div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.automount.enabled">Auto-mount Drives</label>
+                    <span class="config-field-desc" data-i18n="config.field.automount.enabled.desc">Mount Windows drives under /mnt/</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-automount-enabled" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.automount.root">Mount Root</label>
+                    <span class="config-field-desc" data-i18n="config.field.automount.root.desc">Root path for Windows drives</span>
+                  </div>
+                  <div class="config-field-control">
+                    <input type="text" id="cfg-automount-root" class="config-input" placeholder="/mnt/" />
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.automount.options">Mount Options</label>
+                    <span class="config-field-desc" data-i18n="config.field.automount.options.desc">DrvFs mount options</span>
+                  </div>
+                  <div class="config-field-control">
+                    <input type="text" id="cfg-automount-options" class="config-input config-input-wide" placeholder="metadata,umask=22" />
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.automount.mountFsTab">Mount fstab</label>
+                    <span class="config-field-desc" data-i18n="config.field.automount.mountFsTab.desc">Process /etc/fstab on startup</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-automount-mountFsTab" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- interop -->
+              <div class="config-section">
+                <div class="config-section-header">[interop]</div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.interop.enabled">Windows Interop</label>
+                    <span class="config-field-desc" data-i18n="config.field.interop.enabled.desc">Run Windows executables from WSL</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-interop-enabled" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.interop.appendWindowsPath">Append Windows PATH</label>
+                    <span class="config-field-desc" data-i18n="config.field.interop.appendWindowsPath.desc">Add Windows PATH to WSL PATH</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-interop-appendWindowsPath" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- user -->
+              <div class="config-section">
+                <div class="config-section-header">[user]</div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.user.default">Default User</label>
+                    <span class="config-field-desc" data-i18n="config.field.user.default.desc">Username on distro start</span>
+                  </div>
+                  <div class="config-field-control">
+                    <input type="text" id="cfg-user-default" class="config-input" placeholder="" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- boot -->
+              <div class="config-section">
+                <div class="config-section-header">[boot]</div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.boot.systemd">Systemd</label>
+                    <span class="config-field-desc" data-i18n="config.field.boot.systemd.desc">Run systemd as PID 1</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-boot-systemd" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.boot.command">Boot Command</label>
+                    <span class="config-field-desc" data-i18n="config.field.boot.command.desc">Command on distro startup</span>
+                  </div>
+                  <div class="config-field-control">
+                    <input type="text" id="cfg-boot-command" class="config-input config-input-wide" placeholder="" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- network -->
+              <div class="config-section">
+                <div class="config-section-header">[network]</div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.network.hostname">Hostname</label>
+                    <span class="config-field-desc" data-i18n="config.field.network.hostname.desc">Custom hostname</span>
+                  </div>
+                  <div class="config-field-control">
+                    <input type="text" id="cfg-network-hostname" class="config-input" placeholder="" />
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.network.generateHosts">Generate /etc/hosts</label>
+                    <span class="config-field-desc" data-i18n="config.field.network.generateHosts.desc">Auto-generate on startup</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-network-generateHosts" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="config-field">
+                  <div class="config-field-info">
+                    <label class="config-field-label" data-i18n="config.field.network.generateResolvConf">Generate resolv.conf</label>
+                    <span class="config-field-desc" data-i18n="config.field.network.generateResolvConf.desc">Auto-generate on startup</span>
+                  </div>
+                  <div class="config-field-control">
+                    <label class="config-toggle"><input type="checkbox" id="cfg-network-generateResolvConf" /><span class="config-toggle-slider"></span></label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="config-actions">
+                <button id="config-wslconf-optimize" class="btn-outline config-action-btn" data-i18n="config.optimize">Optimize</button>
+                <button id="config-wslconf-reset" class="btn-outline config-action-btn" data-i18n="config.reset">Reset</button>
+                <button id="config-wslconf-save" class="btn-primary config-action-btn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/>
+                  </svg>
+                  <span data-i18n="config.save">Save</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Loading state -->
+            <div id="config-loading" class="health-loading hidden">
+              <div class="spinner"></div>
+              <p data-i18n="config.loading">Loading configuration...</p>
+            </div>
+          </div>
+
           <!-- ════ Distros Page ════ -->
           <div id="page-distros" class="page hidden">
             <div class="distros-toolbar">
@@ -887,6 +1330,100 @@
                 </div>
                 <pre id="distros-log" class="distros-log"></pre>
               </div>
+            </div>
+          </div>
+
+          <!-- ════ Startup Manager Page ════ -->
+          <div id="page-startup" class="page hidden">
+            <h2 class="section-title" data-i18n="startup.title">Startup Manager</h2>
+            <p class="section-desc" data-i18n="startup.desc">View and manage auto-starting services in your WSL distros.</p>
+
+            <!-- Toolbar -->
+            <div class="health-toolbar">
+              <div class="health-toolbar-left">
+                <label class="health-label" data-i18n="startup.distro">Distro</label>
+                <select id="startup-distro" class="health-select"></select>
+              </div>
+              <div class="health-toolbar-right">
+                <button id="btn-startup-refresh" class="btn-outline btn-health-refresh">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                  </svg>
+                  <span data-i18n="startup.refresh">Refresh</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Content area -->
+            <div id="startup-content" class="hidden">
+              <!-- Init system banner -->
+              <div id="startup-init-banner" class="startup-init-banner">
+                <span id="startup-init-name">--</span>
+              </div>
+
+              <!-- Search & filter controls -->
+              <div class="startup-filters">
+                <div class="task-search-wrap">
+                  <svg class="task-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input type="text" id="startup-search" class="task-search"
+                         data-i18n-placeholder="startup.searchPlaceholder"
+                         placeholder="Search services..." autocomplete="off" />
+                </div>
+                <div class="startup-state-filters">
+                  <button class="startup-filter-btn active" data-filter="all" data-i18n="startup.filterAll">All</button>
+                  <button class="startup-filter-btn" data-filter="enabled" data-i18n="startup.filterEnabled">Enabled</button>
+                  <button class="startup-filter-btn" data-filter="disabled" data-i18n="startup.filterDisabled">Disabled</button>
+                  <button class="startup-filter-btn" data-filter="static" data-i18n="startup.filterStatic">Static</button>
+                  <button class="startup-filter-btn" data-filter="masked" data-i18n="startup.filterMasked">Masked</button>
+                </div>
+              </div>
+
+              <!-- Service count summary -->
+              <div id="startup-summary" class="startup-summary"></div>
+
+              <!-- Services list -->
+              <div id="startup-services-list" class="startup-services-list"></div>
+
+              <!-- rc.local section -->
+              <div id="startup-rclocal" class="health-detail-card hidden" style="margin-top: 20px;">
+                <div class="health-detail-header" data-i18n="startup.rclocal">rc.local</div>
+                <div class="health-detail-body">
+                  <pre id="startup-rclocal-content" class="startup-rclocal-pre"></pre>
+                </div>
+              </div>
+            </div>
+
+            <!-- Non-systemd notice -->
+            <div id="startup-no-systemd" class="health-empty hidden">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
+              <p data-i18n="startup.noSystemd">This distro does not use systemd. Startup management requires systemd to be enabled.</p>
+              <p class="startup-hint" data-i18n-html="startup.enableSystemdHint">Add <code>[boot]<br>systemd=true</code> to <code>/etc/wsl.conf</code> and restart the distro.</p>
+            </div>
+
+            <!-- Loading state -->
+            <div id="startup-loading" class="health-loading hidden">
+              <div class="spinner"></div>
+              <p data-i18n="startup.loading">Loading startup services...</p>
+            </div>
+
+            <!-- Empty state -->
+            <div id="startup-empty" class="health-empty">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
+              </svg>
+              <p data-i18n="startup.empty">Select a distro to manage startup services.</p>
+            </div>
+
+            <!-- Error state -->
+            <div id="startup-error" class="health-error hidden">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+              <p id="startup-error-msg" data-i18n="startup.error">Could not retrieve startup services. Make sure the distro is running.</p>
             </div>
           </div>
 

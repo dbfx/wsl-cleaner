@@ -31,12 +31,12 @@ let state = {
   alertsEnabled: false,
   alertCooldown: 30,
   alerts: {
-    vhdxSize:    { enabled: false, threshold: 60 },
-    memoryHigh:  { enabled: false, threshold: 80 },
-    dockerSpace: { enabled: false, threshold: 10 },
-    zombies:     { enabled: false, threshold: 1 },
-    systemdFail: { enabled: false, threshold: 1 },
-    dnsBroken:   { enabled: false, threshold: 0 },
+    vhdxSize:    { enabled: true, threshold: 60 },
+    memoryHigh:  { enabled: true, threshold: 80 },
+    dockerSpace: { enabled: true, threshold: 10 },
+    zombies:     { enabled: true, threshold: 1 },
+    systemdFail: { enabled: true, threshold: 1 },
+    dnsBroken:   { enabled: true, threshold: 0 },
   },
 };
 
@@ -115,6 +115,12 @@ const simpleStepCounter = $('#simple-step-counter');
 const simpleElapsed = $('#simple-elapsed');
 const progressHeader = simpleSteps ? simpleSteps.querySelector('.progress-header') : null;
 let elapsedInterval = null;
+
+// Live output log (Cleaner page)
+const cleanerLog = $('#cleaner-log');
+const cleanerLogSection = $('#cleaner-log-section');
+const cleanerLogToggle = $('#cleaner-log-toggle');
+const cleanupStepSub = $('#cleanup-step-sub');
 
 // About page
 const aboutVersion = $('#about-version');
@@ -329,7 +335,9 @@ function showScreen(screen) {
 }
 
 function appendLog(text) {
-  // Log panel removed in Settings/Cleaner refactor; output is silent now
+  if (!cleanerLog || !text) return;
+  cleanerLog.textContent += text;
+  cleanerLog.scrollTop = cleanerLog.scrollHeight;
 }
 
 function setTaskState(taskId, stateClass) {
@@ -395,6 +403,12 @@ function switchPage(pageName) {
 
   // Render tray page
   if (pageName === 'tray') renderTrayPage();
+
+  // Render config editor page
+  if (pageName === 'config') renderConfigPage();
+
+  // Render startup manager page
+  if (pageName === 'startup') renderStartupPage();
 }
 
 // Wire sidebar clicks
@@ -904,6 +918,14 @@ window.wslCleaner.onTaskOutput(({ taskId, text }) => {
   appendLog(text);
 });
 
+// ── Cleaner log panel toggle ─────────────────────────────────────────────────
+
+if (cleanerLogToggle) {
+  cleanerLogToggle.addEventListener('click', () => {
+    cleanerLogSection.classList.toggle('collapsed');
+  });
+}
+
 // ── Aggressive task confirmation ─────────────────────────────────────────────
 
 function getEnabledAggressiveTasks() {
@@ -1145,6 +1167,13 @@ btnSimpleGo.addEventListener('click', async () => {
   resetSimpleSteps();
   applyCleanOnlyVisibility(!doCompact);
 
+  // Show and clear the live output log
+  if (cleanerLog) cleanerLog.textContent = '';
+  if (cleanerLogSection) {
+    cleanerLogSection.classList.remove('hidden', 'collapsed');
+  }
+  if (cleanupStepSub) cleanupStepSub.textContent = '';
+
   // Hide the disclaimer, button, estimate, and hero once cleanup starts
   const disclaimer = document.querySelector('.simple-disclaimer');
   if (disclaimer) disclaimer.classList.add('hidden');
@@ -1162,6 +1191,7 @@ btnSimpleGo.addEventListener('click', async () => {
   let simpleTotalRun = 0, simpleTotalOk = 0, simpleTotalFail = 0;
   let simpleStaleFound = 0, simpleStaleDeleted = 0;
   const failedTasks = [];
+  const taskSavingsMap = {}; // { taskId: { name, spaceSaved } }
 
   // Measure total VHDX size before
   let totalBefore = 0;
@@ -1184,6 +1214,7 @@ btnSimpleGo.addEventListener('click', async () => {
       } catch { /* scan failed, continue anyway */ }
 
       if (stalePaths.length > 0) {
+        const beforeStale = await window.wslCleaner.getAvailableSpace(distro);
         try {
           const delResults = await window.wslCleaner.deleteStaleDirs({
             distro,
@@ -1192,6 +1223,16 @@ btnSimpleGo.addEventListener('click', async () => {
           });
           simpleStaleDeleted += delResults.filter(r => r.ok).length;
         } catch { /* ignore deletion errors */ }
+        const afterStale = await window.wslCleaner.getAvailableSpace(distro);
+        if (beforeStale.ok && afterStale.ok) {
+          const delta = afterStale.bytes - beforeStale.bytes;
+          if (delta > 0) {
+            if (!taskSavingsMap['_stale']) {
+              taskSavingsMap['_stale'] = { name: t('result.breakdownStale'), spaceSaved: 0 };
+            }
+            taskSavingsMap['_stale'].spaceSaved += delta;
+          }
+        }
       }
     }
     setSimpleStep('stale', 'done');
@@ -1204,6 +1245,19 @@ btnSimpleGo.addEventListener('click', async () => {
   setSimpleStep('cleanup', 'active');
   let cleanupOk = true;
   const cleanupErrors = [];
+  let cleanupTaskIndex = 0;
+
+  // Pre-compute total task count across all distros for sub-progress
+  let cleanupTaskTotal = 0;
+  for (const distro of state.selectedDistros) {
+    const distroTools = state.toolsByDistro[distro] || {};
+    cleanupTaskTotal += TASKS.filter(task => {
+      if (task.id === 'fstrim') return false;
+      if (!state.taskEnabled[task.id]) return false;
+      return !task.requires || distroTools[task.requires];
+    }).length;
+  }
+
   for (const distro of state.selectedDistros) {
     const distroTools = state.toolsByDistro[distro] || {};
     const availableTasks = TASKS.filter(task => {
@@ -1213,7 +1267,13 @@ btnSimpleGo.addEventListener('click', async () => {
       return available;
     });
     for (const task of availableTasks) {
+      cleanupTaskIndex++;
+      const taskName = t('task.' + task.id + '.name') || task.name || task.id;
+      if (cleanupStepSub) {
+        cleanupStepSub.textContent = taskName + ' (' + cleanupTaskIndex + ' / ' + cleanupTaskTotal + ')';
+      }
       simpleTotalRun++;
+      const beforeSpace = await window.wslCleaner.getAvailableSpace(distro);
       const result = await window.wslCleaner.runCleanup({
         distro,
         taskId: task.id,
@@ -1222,6 +1282,19 @@ btnSimpleGo.addEventListener('click', async () => {
       });
       if (result.ok) {
         simpleTotalOk++;
+        const afterSpace = await window.wslCleaner.getAvailableSpace(distro);
+        if (beforeSpace.ok && afterSpace.ok) {
+          const delta = afterSpace.bytes - beforeSpace.bytes;
+          if (delta > 0) {
+            if (!taskSavingsMap[task.id]) {
+              taskSavingsMap[task.id] = {
+                name: t('task.' + task.id + '.name') || task.name || task.id,
+                spaceSaved: 0,
+              };
+            }
+            taskSavingsMap[task.id].spaceSaved += delta;
+          }
+        }
       } else {
         simpleTotalFail++;
         cleanupOk = false;
@@ -1232,6 +1305,7 @@ btnSimpleGo.addEventListener('click', async () => {
       }
     }
   }
+  if (cleanupStepSub) cleanupStepSub.textContent = '';
   setSimpleStep('cleanup', cleanupOk ? 'done' : 'failed', cleanupErrors.join('\n'));
 
   // Step 3: Filesystem TRIM on each distro
@@ -1240,12 +1314,28 @@ btnSimpleGo.addEventListener('click', async () => {
   let fstrimOk = true;
   const fstrimErrors = [];
   for (const distro of state.selectedDistros) {
+    const beforeFstrim = await window.wslCleaner.getAvailableSpace(distro);
     const fstrimResult = await window.wslCleaner.runCleanup({
       distro,
       taskId: 'fstrim',
       command: fstrimTask.command,
       asRoot: fstrimTask.asRoot,
     });
+    if (fstrimResult.ok) {
+      const afterFstrim = await window.wslCleaner.getAvailableSpace(distro);
+      if (beforeFstrim.ok && afterFstrim.ok) {
+        const delta = afterFstrim.bytes - beforeFstrim.bytes;
+        if (delta > 0) {
+          if (!taskSavingsMap['fstrim']) {
+            taskSavingsMap['fstrim'] = {
+              name: t('task.fstrim.name') || 'Filesystem TRIM',
+              spaceSaved: 0,
+            };
+          }
+          taskSavingsMap['fstrim'].spaceSaved += delta;
+        }
+      }
+    }
     if (!fstrimResult.ok) {
       fstrimOk = false;
       const detail = (fstrimResult.output || '').trim();
@@ -1345,8 +1435,15 @@ btnSimpleGo.addEventListener('click', async () => {
   $('#result-stale-deleted').textContent = simpleStaleDeleted;
   $('#result-duration').textContent = durationM + ':' + String(durationS).padStart(2, '0');
 
-  // Hide steps and show completion view
+  // Build per-task savings breakdown
+  const taskSavings = Object.values(taskSavingsMap)
+    .filter(t => t.spaceSaved > 0)
+    .sort((a, b) => b.spaceSaved - a.spaceSaved);
+  renderTaskBreakdownChart(taskSavings);
+
+  // Hide steps, log panel, and show completion view
   simpleSteps.classList.add('hidden');
+  if (cleanerLogSection) cleanerLogSection.classList.add('hidden');
   simpleResult.classList.remove('hidden');
 
   // Celebration effects
@@ -1369,6 +1466,7 @@ btnSimpleGo.addEventListener('click', async () => {
     staleDirsFound: simpleStaleFound,
     staleDirsDeleted: simpleStaleDeleted,
     durationMs,
+    taskBreakdown: taskSavings,
   });
 
   state.isRunning = false;
@@ -1377,6 +1475,14 @@ btnSimpleGo.addEventListener('click', async () => {
 
 // ── "Clean Again" button restores the initial cleaner view ────────────────
 $('#btn-clean-again').addEventListener('click', () => {
+  // Destroy breakdown chart if it exists
+  if (taskBreakdownChart) {
+    taskBreakdownChart.destroy();
+    taskBreakdownChart = null;
+  }
+  const breakdownEl = $('#result-breakdown');
+  if (breakdownEl) breakdownEl.classList.add('hidden');
+
   // Hide completion view
   simpleResult.classList.add('hidden');
 
@@ -1698,6 +1804,100 @@ function createChartDefaults() {
   Chart.defaults.font.family = "'Segoe UI', system-ui, -apple-system, sans-serif";
   Chart.defaults.font.size = 11;
 }
+
+// ── Task breakdown chart (results screen) ─────────────────────────────────────
+
+let taskBreakdownChart = null;
+
+/**
+ * Render a horizontal bar chart showing per-task space savings on the results screen.
+ * @param {Array<{ name: string, spaceSaved: number }>} taskSavings - sorted descending
+ */
+function renderTaskBreakdownChart(taskSavings) {
+  const container = $('#result-breakdown');
+  const canvas = $('#chart-task-breakdown');
+  const emptyMsg = $('#result-breakdown-empty');
+
+  if (taskBreakdownChart) {
+    taskBreakdownChart.destroy();
+    taskBreakdownChart = null;
+  }
+
+  if (!taskSavings || taskSavings.length === 0) {
+    container.classList.remove('hidden');
+    canvas.parentElement.style.display = 'none';
+    emptyMsg.classList.remove('hidden');
+    return;
+  }
+
+  container.classList.remove('hidden');
+  canvas.parentElement.style.display = '';
+  emptyMsg.classList.add('hidden');
+
+  // Dynamic height: 36px per bar, minimum 200px
+  const chartHeight = Math.max(200, taskSavings.length * 36 + 60);
+  canvas.parentElement.style.height = chartHeight + 'px';
+
+  createChartDefaults();
+  const ctx = canvas.getContext('2d');
+
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+  gradient.addColorStop(0, 'rgba(0, 212, 170, 0.3)');
+  gradient.addColorStop(1, 'rgba(0, 212, 170, 0.8)');
+
+  taskBreakdownChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: taskSavings.map(t => t.name),
+      datasets: [{
+        label: t('result.breakdownLabel'),
+        data: taskSavings.map(t => t.spaceSaved),
+        backgroundColor: gradient,
+        borderColor: chartColors.accent,
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1c1c30',
+          borderColor: chartColors.border,
+          borderWidth: 1,
+          titleColor: '#e8e8f0',
+          bodyColor: chartColors.text,
+          padding: 12,
+          callbacks: {
+            label: (context) => t('chart.saved', { value: formatBytes(context.parsed.x) }),
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: chartColors.gridLine, drawBorder: false },
+          ticks: {
+            color: chartColors.textMuted,
+            callback: (val) => formatBytes(val),
+          },
+        },
+        y: {
+          grid: { display: false },
+          ticks: {
+            color: chartColors.text,
+            font: { size: 11 },
+          },
+        },
+      },
+    },
+  });
+}
+
+// ── Stats page charts ─────────────────────────────────────────────────────────
 
 function buildDiskSizeChart(history) {
   const canvas = $('#chart-disk-size');
@@ -3293,6 +3493,713 @@ localeSelect.addEventListener('change', async () => {
   if (state.currentPage === 'distros') renderDistrosPage();
 });
 
+// ── Config Editor Page ───────────────────────────────────────────────────────
+
+const _cfgSystemRes = { totalMemory: 0, cpuCount: 0 };
+
+// .wslconfig field definitions: { id, section, key, type, options? }
+const WSL_CONFIG_FIELDS = [
+  { id: 'cfg-wsl2-memory', section: 'wsl2', key: 'memory', type: 'text' },
+  { id: 'cfg-wsl2-processors', section: 'wsl2', key: 'processors', type: 'number' },
+  { id: 'cfg-wsl2-swap', section: 'wsl2', key: 'swap', type: 'text' },
+  { id: 'cfg-wsl2-swapFile', section: 'wsl2', key: 'swapFile', type: 'text' },
+  { id: 'cfg-wsl2-kernelCommandLine', section: 'wsl2', key: 'kernelCommandLine', type: 'text' },
+  { id: 'cfg-wsl2-localhostForwarding', section: 'wsl2', key: 'localhostForwarding', type: 'bool' },
+  { id: 'cfg-wsl2-networkingMode', section: 'wsl2', key: 'networkingMode', type: 'select' },
+  { id: 'cfg-wsl2-dnsTunneling', section: 'wsl2', key: 'dnsTunneling', type: 'bool' },
+  { id: 'cfg-wsl2-dnsProxy', section: 'wsl2', key: 'dnsProxy', type: 'bool' },
+  { id: 'cfg-wsl2-autoProxy', section: 'wsl2', key: 'autoProxy', type: 'bool' },
+  { id: 'cfg-wsl2-firewall', section: 'wsl2', key: 'firewall', type: 'bool' },
+  { id: 'cfg-wsl2-autoMemoryReclaim', section: 'wsl2', key: 'autoMemoryReclaim', type: 'select' },
+  { id: 'cfg-wsl2-sparseVhd', section: 'wsl2', key: 'sparseVhd', type: 'bool' },
+  { id: 'cfg-wsl2-pageReporting', section: 'wsl2', key: 'pageReporting', type: 'bool' },
+  { id: 'cfg-wsl2-nestedVirtualization', section: 'wsl2', key: 'nestedVirtualization', type: 'bool' },
+  { id: 'cfg-wsl2-vmIdleTimeout', section: 'wsl2', key: 'vmIdleTimeout', type: 'number' },
+  { id: 'cfg-wsl2-guiApplications', section: 'wsl2', key: 'guiApplications', type: 'bool' },
+  { id: 'cfg-wsl2-debugConsole', section: 'wsl2', key: 'debugConsole', type: 'bool' },
+];
+
+// wsl.conf field definitions
+const WSL_CONF_FIELDS = [
+  { id: 'cfg-automount-enabled', section: 'automount', key: 'enabled', type: 'bool' },
+  { id: 'cfg-automount-root', section: 'automount', key: 'root', type: 'text' },
+  { id: 'cfg-automount-options', section: 'automount', key: 'options', type: 'text' },
+  { id: 'cfg-automount-mountFsTab', section: 'automount', key: 'mountFsTab', type: 'bool' },
+  { id: 'cfg-interop-enabled', section: 'interop', key: 'enabled', type: 'bool' },
+  { id: 'cfg-interop-appendWindowsPath', section: 'interop', key: 'appendWindowsPath', type: 'bool' },
+  { id: 'cfg-user-default', section: 'user', key: 'default', type: 'text' },
+  { id: 'cfg-boot-systemd', section: 'boot', key: 'systemd', type: 'bool' },
+  { id: 'cfg-boot-command', section: 'boot', key: 'command', type: 'text' },
+  { id: 'cfg-network-hostname', section: 'network', key: 'hostname', type: 'text' },
+  { id: 'cfg-network-generateHosts', section: 'network', key: 'generateHosts', type: 'bool' },
+  { id: 'cfg-network-generateResolvConf', section: 'network', key: 'generateResolvConf', type: 'bool' },
+];
+
+// Convert raw byte values (like 20971520000) to friendly format (like "20GB")
+function cfgFriendlyMemory(val) {
+  if (!val) return val;
+  const str = String(val);
+  // Already in friendly format like "4GB" or "512MB"
+  if (/^\d+(MB|GB|TB)$/i.test(str)) return str;
+  // Raw number — treat as bytes
+  const n = parseInt(str, 10);
+  if (isNaN(n)) return str;
+  const gb = n / (1024 * 1024 * 1024);
+  if (gb >= 1 && gb === Math.round(gb)) return Math.round(gb) + 'GB';
+  if (gb >= 1) return gb.toFixed(1).replace(/\.0$/, '') + 'GB';
+  const mb = n / (1024 * 1024);
+  if (mb >= 1) return Math.round(mb) + 'MB';
+  return str;
+}
+
+const MEMORY_FIELD_IDS = new Set(['cfg-wsl2-memory', 'cfg-wsl2-swap']);
+
+function cfgSetFieldValue(id, value) {
+  const el = $(`#${id}`);
+  if (!el) return;
+  if (el.type === 'checkbox') {
+    el.checked = value === 'true' || value === true;
+  } else {
+    el.value = (MEMORY_FIELD_IDS.has(id) ? cfgFriendlyMemory(value) : value) ?? '';
+  }
+}
+
+function cfgGetFieldValue(id, type) {
+  const el = $(`#${id}`);
+  if (!el) return '';
+  if (type === 'bool') return el.checked ? 'true' : 'false';
+  return el.value.trim();
+}
+
+function cfgPopulateFields(fields, data) {
+  for (const f of fields) {
+    const sectionData = data?.[f.section];
+    const value = sectionData?.[f.key] ?? '';
+    cfgSetFieldValue(f.id, value);
+  }
+}
+
+function cfgCollectFields(fields) {
+  const result = {};
+  for (const f of fields) {
+    const val = cfgGetFieldValue(f.id, f.type);
+    // Skip empty values so they don't clutter the config file
+    if (val === '' || val == null) continue;
+    if (!result[f.section]) result[f.section] = {};
+    result[f.section][f.key] = val;
+  }
+  return result;
+}
+
+function cfgShowToast(message, type = 'success') {
+  // Remove any existing toast
+  const existing = document.querySelector('.config-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = `config-toast config-toast-${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+function cfgValidateWslConfig() {
+  let valid = true;
+  // Clear previous errors
+  $$('.config-input-error').forEach(el => el.classList.remove('config-input-error'));
+  $$('.config-field-error-msg').forEach(el => el.remove());
+
+  const memEl = $('#cfg-wsl2-memory');
+  const memVal = memEl.value.trim();
+  if (memVal && !/^\d+(MB|GB)$/i.test(memVal) && !/^\d+$/.test(memVal)) {
+    memEl.classList.add('config-input-error');
+    const msg = document.createElement('div');
+    msg.className = 'config-field-error-msg';
+    msg.textContent = t('config.validation.memoryFormat');
+    memEl.parentElement.appendChild(msg);
+    valid = false;
+  }
+
+  const swapEl = $('#cfg-wsl2-swap');
+  const swapVal = swapEl.value.trim();
+  if (swapVal && swapVal !== '0' && !/^\d+(MB|GB)$/i.test(swapVal) && !/^\d+$/.test(swapVal)) {
+    swapEl.classList.add('config-input-error');
+    const msg = document.createElement('div');
+    msg.className = 'config-field-error-msg';
+    msg.textContent = t('config.validation.memoryFormat');
+    swapEl.parentElement.appendChild(msg);
+    valid = false;
+  }
+
+  const procEl = $('#cfg-wsl2-processors');
+  if (procEl.value.trim()) {
+    const n = parseInt(procEl.value, 10);
+    if (isNaN(n) || n < 1 || (_cfgSystemRes.cpuCount > 0 && n > _cfgSystemRes.cpuCount)) {
+      procEl.classList.add('config-input-error');
+      const msg = document.createElement('div');
+      msg.className = 'config-field-error-msg';
+      msg.textContent = t('config.validation.processorRange', { max: _cfgSystemRes.cpuCount || '?' });
+      procEl.parentElement.appendChild(msg);
+      valid = false;
+    }
+  }
+
+  const timeoutEl = $('#cfg-wsl2-vmIdleTimeout');
+  if (timeoutEl.value.trim()) {
+    const n = parseInt(timeoutEl.value, 10);
+    if (isNaN(n) || n < 0) {
+      timeoutEl.classList.add('config-input-error');
+      const msg = document.createElement('div');
+      msg.className = 'config-field-error-msg';
+      msg.textContent = t('config.validation.positiveInt');
+      timeoutEl.parentElement.appendChild(msg);
+      valid = false;
+    }
+  }
+
+  return valid;
+}
+
+function cfgOptimizeWslConfig() {
+  const totalGB = Math.round(_cfgSystemRes.totalMemory / (1024 * 1024 * 1024));
+  const memGB = Math.max(2, Math.round(totalGB * 0.5));
+  const procs = Math.max(2, Math.round(_cfgSystemRes.cpuCount * 0.5));
+  const swapGB = Math.max(1, Math.round(memGB * 0.25));
+
+  cfgSetFieldValue('cfg-wsl2-memory', memGB + 'GB');
+  cfgSetFieldValue('cfg-wsl2-processors', procs);
+  cfgSetFieldValue('cfg-wsl2-swap', swapGB + 'GB');
+  cfgSetFieldValue('cfg-wsl2-localhostForwarding', true);
+  cfgSetFieldValue('cfg-wsl2-networkingMode', 'mirrored');
+  cfgSetFieldValue('cfg-wsl2-dnsTunneling', true);
+  cfgSetFieldValue('cfg-wsl2-dnsProxy', true);
+  cfgSetFieldValue('cfg-wsl2-autoProxy', true);
+  cfgSetFieldValue('cfg-wsl2-firewall', true);
+  cfgSetFieldValue('cfg-wsl2-autoMemoryReclaim', 'gradual');
+  cfgSetFieldValue('cfg-wsl2-sparseVhd', true);
+  cfgSetFieldValue('cfg-wsl2-pageReporting', true);
+  cfgSetFieldValue('cfg-wsl2-nestedVirtualization', false);
+  cfgSetFieldValue('cfg-wsl2-guiApplications', true);
+  cfgSetFieldValue('cfg-wsl2-debugConsole', false);
+
+  cfgShowToast(t('config.optimizeApplied'));
+}
+
+function cfgOptimizeWslConf() {
+  cfgSetFieldValue('cfg-automount-enabled', true);
+  cfgSetFieldValue('cfg-automount-root', '/mnt/');
+  cfgSetFieldValue('cfg-automount-mountFsTab', true);
+  cfgSetFieldValue('cfg-interop-enabled', true);
+  cfgSetFieldValue('cfg-interop-appendWindowsPath', true);
+  cfgSetFieldValue('cfg-boot-systemd', true);
+  cfgSetFieldValue('cfg-network-generateHosts', true);
+  cfgSetFieldValue('cfg-network-generateResolvConf', true);
+
+  cfgShowToast(t('config.optimizeApplied'));
+}
+
+let _cfgCurrentTab = 'wslconfig';
+let _cfgLoaded = false;
+
+async function renderConfigPage() {
+  const loading = $('#config-loading');
+  const wslconfigPanel = $('#config-wslconfig-panel');
+
+  // Load system resources once
+  if (_cfgSystemRes.totalMemory === 0) {
+    try {
+      const res = await window.wslCleaner.getSystemResources();
+      _cfgSystemRes.totalMemory = res.totalMemory;
+      _cfgSystemRes.cpuCount = res.cpuCount;
+      // Set max on processor input
+      const procEl = $('#cfg-wsl2-processors');
+      if (procEl) procEl.max = _cfgSystemRes.cpuCount;
+    } catch { /* non-critical */ }
+  }
+
+  // Show correct tab
+  cfgSwitchTab(_cfgCurrentTab);
+
+  // Load .wslconfig if on that tab and not yet loaded
+  if (_cfgCurrentTab === 'wslconfig' && !_cfgLoaded) {
+    loading.classList.remove('hidden');
+    wslconfigPanel.classList.add('hidden');
+    try {
+      const result = await window.wslCleaner.readWslConfig();
+      if (result.ok) {
+        cfgPopulateFields(WSL_CONFIG_FIELDS, result.data);
+        // Show the config path in the description
+        if (result.path) {
+          const descEl = $('#config-wslconfig-desc');
+          if (descEl) descEl.innerHTML = t('config.wslconfigDesc', { path: result.path });
+        }
+        if (!result.data) {
+          cfgShowToast(t('config.noFile'), 'success');
+        }
+      }
+    } catch { /* show empty form */ }
+    loading.classList.add('hidden');
+    wslconfigPanel.classList.remove('hidden');
+    _cfgLoaded = true;
+  }
+
+  // Populate distro selector for wsl.conf tab
+  const distroSelect = $('#config-distro-select');
+  if (distroSelect && distroSelect.options.length <= 0 && state.distros.length > 0) {
+    for (const d of state.distros) {
+      const opt = document.createElement('option');
+      opt.value = d.name;
+      opt.textContent = d.name + (d.isDefault ? ` (${t('distros.default')})` : '');
+      distroSelect.appendChild(opt);
+    }
+  }
+}
+
+function cfgSwitchTab(tab) {
+  _cfgCurrentTab = tab;
+  const wslconfigPanel = $('#config-wslconfig-panel');
+  const wslconfPanel = $('#config-wslconf-panel');
+
+  $$('.config-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+
+  if (tab === 'wslconfig') {
+    wslconfigPanel.classList.remove('hidden');
+    wslconfPanel.classList.add('hidden');
+  } else {
+    wslconfigPanel.classList.add('hidden');
+    wslconfPanel.classList.remove('hidden');
+  }
+}
+
+async function cfgLoadWslConf(distro) {
+  if (!distro) return;
+  const loading = $('#config-loading');
+
+  loading.classList.remove('hidden');
+  // Clear fields
+  cfgPopulateFields(WSL_CONF_FIELDS, null);
+
+  try {
+    const result = await window.wslCleaner.readWslConf(distro);
+    if (result.ok && result.data) {
+      cfgPopulateFields(WSL_CONF_FIELDS, result.data);
+    } else if (result.ok && !result.data) {
+      cfgShowToast(t('config.noFile'), 'success');
+    }
+  } catch { /* show empty form */ }
+
+  loading.classList.add('hidden');
+}
+
+// ── Config editor event wiring ──────────────────────────────────────────────
+
+// Tab switching
+$$('.config-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    cfgSwitchTab(btn.dataset.tab);
+    if (btn.dataset.tab === 'wslconf') {
+      const distro = $('#config-distro-select')?.value;
+      if (distro) cfgLoadWslConf(distro);
+    }
+  });
+});
+
+// Distro selector for wsl.conf
+$('#config-distro-select')?.addEventListener('change', (e) => {
+  cfgLoadWslConf(e.target.value);
+});
+
+// .wslconfig Save
+$('#config-wslconfig-save')?.addEventListener('click', async () => {
+  if (!cfgValidateWslConfig()) return;
+
+  const btn = $('#config-wslconfig-save');
+  const origText = btn.querySelector('span').textContent;
+  btn.disabled = true;
+  btn.querySelector('span').textContent = t('config.saving');
+
+  try {
+    const config = cfgCollectFields(WSL_CONFIG_FIELDS);
+    const result = await window.wslCleaner.writeWslConfig(config);
+    if (result.ok) {
+      cfgShowToast(t('config.saved'));
+      $('#config-restart-banner').classList.remove('hidden');
+    } else {
+      cfgShowToast(t('config.saveError', { error: result.error }), 'error');
+    }
+  } catch (err) {
+    cfgShowToast(t('config.saveError', { error: err.message }), 'error');
+  }
+
+  btn.disabled = false;
+  btn.querySelector('span').textContent = origText;
+});
+
+// .wslconfig Optimize
+$('#config-wslconfig-optimize')?.addEventListener('click', cfgOptimizeWslConfig);
+
+// .wslconfig Reset
+$('#config-wslconfig-reset')?.addEventListener('click', async () => {
+  _cfgLoaded = false;
+  await renderConfigPage();
+});
+
+// wsl.conf Save
+$('#config-wslconf-save')?.addEventListener('click', async () => {
+  const distro = $('#config-distro-select')?.value;
+  if (!distro) return;
+
+  const btn = $('#config-wslconf-save');
+  const origText = btn.querySelector('span').textContent;
+  btn.disabled = true;
+  btn.querySelector('span').textContent = t('config.saving');
+
+  try {
+    const config = cfgCollectFields(WSL_CONF_FIELDS);
+    const result = await window.wslCleaner.writeWslConf(distro, config);
+    if (result.ok) {
+      cfgShowToast(t('config.saved'));
+      $('#config-restart-banner').classList.remove('hidden');
+    } else {
+      cfgShowToast(t('config.saveError', { error: result.error }), 'error');
+    }
+  } catch (err) {
+    cfgShowToast(t('config.saveError', { error: err.message }), 'error');
+  }
+
+  btn.disabled = false;
+  btn.querySelector('span').textContent = origText;
+});
+
+// wsl.conf Optimize
+$('#config-wslconf-optimize')?.addEventListener('click', cfgOptimizeWslConf);
+
+// wsl.conf Reset
+$('#config-wslconf-reset')?.addEventListener('click', () => {
+  const distro = $('#config-distro-select')?.value;
+  if (distro) cfgLoadWslConf(distro);
+});
+
+// Restart WSL button
+$('#config-restart-btn')?.addEventListener('click', async () => {
+  const btn = $('#config-restart-btn');
+  btn.disabled = true;
+  try {
+    // Restart the default distro (or first available)
+    const distro = state.distros.find(d => d.isDefault)?.name || state.distros[0]?.name;
+    if (distro) {
+      await window.wslCleaner.restartDistro({ distro, taskId: 'config-restart' });
+      $('#config-restart-banner').classList.add('hidden');
+      cfgShowToast('WSL restarted');
+    }
+  } catch { /* ignore */ }
+  btn.disabled = false;
+});
+
+// ── Startup Manager ─────────────────────────────────────────────────────────
+
+const startupDistroSelect = $('#startup-distro');
+const startupContent = $('#startup-content');
+const startupLoading = $('#startup-loading');
+const startupEmpty = $('#startup-empty');
+const startupError = $('#startup-error');
+const startupErrorMsg = $('#startup-error-msg');
+const startupNoSystemd = $('#startup-no-systemd');
+const startupServicesList = $('#startup-services-list');
+const startupSearch = $('#startup-search');
+const startupSummary = $('#startup-summary');
+const startupRcLocal = $('#startup-rclocal');
+const startupRcLocalContent = $('#startup-rclocal-content');
+const startupInitName = $('#startup-init-name');
+const btnStartupRefresh = $('#btn-startup-refresh');
+
+let _startupServices = [];
+let _startupFilter = 'all';
+let _startupSearchDebounce = null;
+
+function showStartupState(which) {
+  startupContent.classList.add('hidden');
+  startupLoading.classList.add('hidden');
+  startupEmpty.classList.add('hidden');
+  startupError.classList.add('hidden');
+  startupNoSystemd.classList.add('hidden');
+  if (which === 'content') startupContent.classList.remove('hidden');
+  else if (which === 'loading') startupLoading.classList.remove('hidden');
+  else if (which === 'empty') startupEmpty.classList.remove('hidden');
+  else if (which === 'error') startupError.classList.remove('hidden');
+  else if (which === 'no-systemd') startupNoSystemd.classList.remove('hidden');
+}
+
+function populateStartupDistros() {
+  startupDistroSelect.innerHTML = '';
+  for (const d of state.distros) {
+    const opt = document.createElement('option');
+    opt.value = d.name;
+    opt.textContent = d.name;
+    if (state.selectedDistros.includes(d.name)) opt.selected = true;
+    startupDistroSelect.appendChild(opt);
+  }
+}
+
+async function renderStartupPage() {
+  populateStartupDistros();
+
+  const distro = startupDistroSelect.value;
+  if (!distro) {
+    showStartupState('empty');
+    return;
+  }
+
+  showStartupState('loading');
+
+  try {
+    const [servicesResult, rcResult] = await Promise.all([
+      window.wslCleaner.getStartupServices(distro),
+      window.wslCleaner.getRcLocal(distro),
+    ]);
+
+    if (!servicesResult.ok) {
+      startupErrorMsg.textContent = servicesResult.error || t('startup.error');
+      showStartupState('error');
+      return;
+    }
+
+    if (servicesResult.data.initSystem !== 'systemd') {
+      if (rcResult.ok && rcResult.exists) {
+        startupRcLocalContent.textContent = rcResult.content;
+        startupRcLocal.classList.remove('hidden');
+      }
+      showStartupState('no-systemd');
+      return;
+    }
+
+    _startupServices = servicesResult.data.services;
+    startupInitName.textContent = t('startup.initSystemd');
+
+    renderStartupServiceList();
+
+    if (rcResult.ok && rcResult.exists) {
+      startupRcLocalContent.textContent = rcResult.content;
+      startupRcLocal.classList.remove('hidden');
+    } else {
+      startupRcLocal.classList.add('hidden');
+    }
+
+    showStartupState('content');
+  } catch (err) {
+    startupErrorMsg.textContent = t('startup.error');
+    showStartupState('error');
+  }
+}
+
+function getStartupStateClass(unitFileState) {
+  switch (unitFileState) {
+    case 'enabled': return 'startup-state-enabled';
+    case 'disabled': return 'startup-state-disabled';
+    case 'static': return 'startup-state-static';
+    case 'masked': return 'startup-state-masked';
+    default: return '';
+  }
+}
+
+function getStartupActiveClass(activeState) {
+  switch (activeState) {
+    case 'active': return 'startup-active-active';
+    case 'failed': return 'startup-active-failed';
+    case 'inactive': return 'startup-active-inactive';
+    default: return '';
+  }
+}
+
+function renderStartupServiceList() {
+  const query = (startupSearch.value || '').toLowerCase().trim();
+  const filter = _startupFilter;
+
+  const filtered = _startupServices.filter(svc => {
+    if (filter !== 'all' && svc.unitFileState !== filter) return false;
+    if (query && !svc.unit.toLowerCase().includes(query)) return false;
+    return true;
+  });
+
+  const enabledCount = _startupServices.filter(s => s.unitFileState === 'enabled').length;
+  const disabledCount = _startupServices.filter(s => s.unitFileState === 'disabled').length;
+  const staticCount = _startupServices.filter(s => s.unitFileState === 'static').length;
+  const maskedCount = _startupServices.filter(s => s.unitFileState === 'masked').length;
+  startupSummary.textContent = t('startup.summary', {
+    total: _startupServices.length,
+    enabled: enabledCount,
+    disabled: disabledCount,
+    static: staticCount,
+    masked: maskedCount,
+  });
+
+  startupServicesList.innerHTML = '';
+
+  if (filtered.length === 0) {
+    startupServicesList.innerHTML = '<div class="health-table-empty">' + escapeHtml(t('startup.noResults')) + '</div>';
+    return;
+  }
+
+  let html = '<table class="health-table startup-table"><thead><tr>';
+  html += '<th>' + escapeHtml(t('startup.col.service')) + '</th>';
+  html += '<th>' + escapeHtml(t('startup.col.state')) + '</th>';
+  html += '<th>' + escapeHtml(t('startup.col.active')) + '</th>';
+  html += '<th>' + escapeHtml(t('startup.col.sub')) + '</th>';
+  html += '<th>' + escapeHtml(t('startup.col.toggle')) + '</th>';
+  html += '<th></th>';
+  html += '</tr></thead><tbody>';
+
+  for (const svc of filtered) {
+    const canToggle = svc.unitFileState === 'enabled' || svc.unitFileState === 'disabled';
+    const isEnabled = svc.unitFileState === 'enabled';
+    const stateClass = getStartupStateClass(svc.unitFileState);
+    const activeClass = getStartupActiveClass(svc.activeState);
+
+    html += `<tr class="startup-service-row" data-unit="${escapeHtml(svc.unit)}">`;
+    html += `<td class="mono startup-unit-name">${escapeHtml(svc.unit)}</td>`;
+    html += `<td><span class="startup-state-badge ${stateClass}">${escapeHtml(svc.unitFileState)}</span></td>`;
+    html += `<td><span class="startup-active-badge ${activeClass}">${escapeHtml(svc.activeState || '--')}</span></td>`;
+    html += `<td class="mono">${escapeHtml(svc.subState || '--')}</td>`;
+    html += '<td>';
+    if (canToggle) {
+      html += `<label class="toggle" onclick="event.stopPropagation()">`;
+      html += `<input type="checkbox" data-unit="${escapeHtml(svc.unit)}" ${isEnabled ? 'checked' : ''} />`;
+      html += `<span class="toggle-slider"></span></label>`;
+    } else {
+      html += `<span class="startup-no-toggle">${escapeHtml(svc.unitFileState)}</span>`;
+    }
+    html += '</td>';
+    html += `<td><button class="startup-detail-btn" data-unit="${escapeHtml(svc.unit)}" title="${escapeHtml(t('startup.viewDetails'))}">`;
+    html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,9 12,15 18,9"/></svg>';
+    html += '</button></td>';
+    html += '</tr>';
+    html += `<tr class="startup-detail-row hidden" data-detail-for="${escapeHtml(svc.unit)}">`;
+    html += `<td colspan="6"><div class="startup-detail-panel"><div class="spinner startup-detail-spinner"></div></div></td>`;
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  startupServicesList.innerHTML = html;
+
+  // Wire toggle change handlers
+  startupServicesList.querySelectorAll('input[type="checkbox"][data-unit]').forEach(cb => {
+    cb.addEventListener('change', async (e) => {
+      const unit = e.target.dataset.unit;
+      const enabled = e.target.checked;
+      e.target.disabled = true;
+
+      const distro = startupDistroSelect.value;
+      const result = await window.wslCleaner.setServiceState({ distro, unit, enabled });
+
+      if (!result.ok) {
+        e.target.checked = !enabled;
+        console.error('[Startup] Toggle failed for', unit, ':', result.output);
+      } else {
+        // Update cached state
+        const svc = _startupServices.find(s => s.unit === unit);
+        if (svc) svc.unitFileState = enabled ? 'enabled' : 'disabled';
+
+        // Update the badge in the same row
+        const row = startupServicesList.querySelector(`tr[data-unit="${unit}"]`);
+        if (row) {
+          const badge = row.querySelector('.startup-state-badge');
+          if (badge) {
+            const newState = enabled ? 'enabled' : 'disabled';
+            badge.textContent = newState;
+            badge.className = 'startup-state-badge ' + getStartupStateClass(newState);
+          }
+        }
+
+        // Update summary counts
+        const enabledCount = _startupServices.filter(s => s.unitFileState === 'enabled').length;
+        const disabledCount = _startupServices.filter(s => s.unitFileState === 'disabled').length;
+        const staticCount = _startupServices.filter(s => s.unitFileState === 'static').length;
+        const maskedCount = _startupServices.filter(s => s.unitFileState === 'masked').length;
+        startupSummary.textContent = t('startup.summary', {
+          total: _startupServices.length,
+          enabled: enabledCount,
+          disabled: disabledCount,
+          static: staticCount,
+          masked: maskedCount,
+        });
+      }
+      e.target.disabled = false;
+    });
+  });
+
+  // Wire detail expand buttons
+  startupServicesList.querySelectorAll('.startup-detail-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const unit = btn.dataset.unit;
+      const detailRow = startupServicesList.querySelector(`tr[data-detail-for="${unit}"]`);
+      if (!detailRow) return;
+
+      const isVisible = !detailRow.classList.contains('hidden');
+      if (isVisible) {
+        detailRow.classList.add('hidden');
+        return;
+      }
+
+      // Collapse any other open detail
+      startupServicesList.querySelectorAll('.startup-detail-row').forEach(r => r.classList.add('hidden'));
+      detailRow.classList.remove('hidden');
+
+      const panel = detailRow.querySelector('.startup-detail-panel');
+      panel.innerHTML = '<div class="spinner startup-detail-spinner"></div>';
+
+      const distro = startupDistroSelect.value;
+      const result = await window.wslCleaner.getServiceDetails({ distro, unit });
+
+      if (result.ok) {
+        const d = result.data;
+        panel.innerHTML = `
+          <div class="startup-detail-grid">
+            <div class="health-kv-row"><span class="health-kv-label">${escapeHtml(t('startup.detail.description'))}</span><span class="health-kv-value">${escapeHtml(d.Description || '--')}</span></div>
+            <div class="health-kv-row"><span class="health-kv-label">${escapeHtml(t('startup.detail.type'))}</span><span class="health-kv-value mono">${escapeHtml(d.Type || '--')}</span></div>
+            <div class="health-kv-row"><span class="health-kv-label">${escapeHtml(t('startup.detail.mainPid'))}</span><span class="health-kv-value mono">${escapeHtml(d.MainPID || '--')}</span></div>
+            <div class="health-kv-row"><span class="health-kv-label">${escapeHtml(t('startup.detail.state'))}</span><span class="health-kv-value">${escapeHtml(d.ActiveState || '--')} (${escapeHtml(d.SubState || '--')})</span></div>
+            <div class="health-kv-row"><span class="health-kv-label">${escapeHtml(t('startup.detail.unitFile'))}</span><span class="health-kv-value mono">${escapeHtml(d.FragmentPath || '--')}</span></div>
+            <div class="health-kv-row"><span class="health-kv-label">${escapeHtml(t('startup.detail.wantedBy'))}</span><span class="health-kv-value mono">${escapeHtml(d.WantedBy || '--')}</span></div>
+            <div class="health-kv-row"><span class="health-kv-label">${escapeHtml(t('startup.detail.started'))}</span><span class="health-kv-value">${escapeHtml(d.ExecMainStartTimestamp || '--')}</span></div>
+          </div>
+        `;
+      } else {
+        panel.innerHTML = '<div class="health-table-empty">' + escapeHtml(t('startup.detailError')) + '</div>';
+      }
+    });
+  });
+}
+
+// Search
+startupSearch.addEventListener('input', () => {
+  clearTimeout(_startupSearchDebounce);
+  _startupSearchDebounce = setTimeout(() => renderStartupServiceList(), 150);
+});
+
+startupSearch.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    startupSearch.value = '';
+    renderStartupServiceList();
+    startupSearch.blur();
+  }
+});
+
+// Filter buttons
+$$('.startup-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('.startup-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _startupFilter = btn.dataset.filter;
+    renderStartupServiceList();
+  });
+});
+
+// Refresh & distro change
+btnStartupRefresh.addEventListener('click', () => renderStartupPage());
+startupDistroSelect.addEventListener('change', () => renderStartupPage());
+
 document.addEventListener('locale-changed', () => {
   renderTasks();
   renderDistroPicker();
@@ -3304,4 +4211,5 @@ document.addEventListener('locale-changed', () => {
   if (state.currentPage === 'diskmap') renderDiskMap();
   if (state.currentPage === 'health') renderHealthPage();
   if (state.currentPage === 'distros') renderDistrosPage();
+  if (state.currentPage === 'startup') renderStartupPage();
 });

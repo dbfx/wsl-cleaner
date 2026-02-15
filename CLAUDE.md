@@ -18,7 +18,7 @@ WSL Cleaner is a desktop Electron application for Windows 10/11 that cleans, opt
 ```
 Electron Main Process (Node.js)
   ├── main.js              # Window lifecycle, IPC handlers, auto-updater
-  ├── lib/wsl-ops.js       # WSL command execution, VHDX discovery, stale scanning, disk usage, health, distro management
+  ├── lib/wsl-ops.js       # WSL command execution, VHDX discovery, stale scanning, disk usage, health, distro management, config editor
   ├── lib/utils.js         # parseWslOutput, friendlyError, exitCodeHint, STALE_DIR_NAMES
   ├── lib/stats-db.js      # Cleanup history persistence (JSON file)
   └── lib/preferences.js   # Task toggle + locale preference persistence
@@ -98,3 +98,6 @@ When making structural changes (adding/removing/renaming files, new test files, 
 1. **`AGENTS.md`** — Architecture diagram, File Responsibilities table
 2. **`README.md`** — Project Structure section
 3. **`CONTRIBUTING.md`** — Project Structure tree, layer/responsibility table
+
+When adding a new user-facing feature (new page, major capability, new sidebar section), update:
+1. **`README.md`** — Add a section under **Features** describing what it does, matching the style of existing feature sections

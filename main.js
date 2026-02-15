@@ -210,6 +210,10 @@ ipcMain.handle('find-vhdx', async (_event, _distro) => wslOps.findVhdx());
 
 ipcMain.handle('get-file-size', async (_event, filePath) => wslOps.getFileSize(filePath));
 
+// ── Get available space inside WSL ───────────────────────────────────────────
+
+ipcMain.handle('get-available-space', async (_event, distro) => wslOps.getAvailableSpace(distro));
+
 // ── Run Windows-side WSL commands (shutdown, update, etc.) ───────────────────
 
 ipcMain.handle('run-wsl-command', async (event, { command, taskId }) => {
@@ -274,6 +278,32 @@ ipcMain.handle('cancel-disk-scan', async () => {
 ipcMain.handle('get-health-info', async (_event, distro) => {
   return wslOps.getHealthInfo(distro);
 });
+
+// ── Startup Manager ──────────────────────────────────────────────────────
+
+ipcMain.handle('get-startup-services', async (_event, distro) => {
+  return wslOps.getStartupServices(distro);
+});
+
+ipcMain.handle('set-service-state', async (_event, opts) => {
+  return wslOps.setServiceState(opts.distro, opts.unit, opts.enabled);
+});
+
+ipcMain.handle('get-service-details', async (_event, opts) => {
+  return wslOps.getServiceDetails(opts.distro, opts.unit);
+});
+
+ipcMain.handle('get-rc-local', async (_event, distro) => {
+  return wslOps.getRcLocal(distro);
+});
+
+// ── WSL Config Editor ────────────────────────────────────────────────────────
+
+ipcMain.handle('get-system-resources', () => wslOps.getSystemResources());
+ipcMain.handle('read-wslconfig', () => wslOps.readWslConfig());
+ipcMain.handle('write-wslconfig', (_event, config) => wslOps.writeWslConfig(config));
+ipcMain.handle('read-wslconf', async (_event, distro) => wslOps.readWslConf(distro));
+ipcMain.handle('write-wslconf', async (_event, distro, config) => wslOps.writeWslConf(distro, config));
 
 // ── Task preferences ─────────────────────────────────────────────────────────
 

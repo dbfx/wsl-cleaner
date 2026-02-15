@@ -150,6 +150,44 @@ Centralized management panel for all your WSL distributions:
 - **Activity log** showing real-time command output from operations
 - Auto-refreshes every 15 seconds while the page is active
 
+### Startup Manager
+
+View and manage auto-starting services across your WSL distros. Detects whether a distro uses systemd and lists all service unit files with their state.
+
+- **Service table** showing every systemd unit with its state (enabled/disabled/static/masked), active status, and sub-state
+- **Enable/disable toggles** for services that support it -- changes take effect on next boot
+- **Search & filter** -- real-time search bar plus quick-filter buttons by state
+- **Expandable detail panels** showing service description, type, PID, unit file path, dependencies, and start timestamp
+- **Init system detection** -- checks `/proc/1/comm` and shows a helpful hint for non-systemd distros with instructions to enable it via `/etc/wsl.conf`
+- **rc.local display** -- shows the contents of `/etc/rc.local` if present
+
+### Config Editor
+
+GUI editor for `.wslconfig` (global) and per-distro `wsl.conf` files with validated fields and smart defaults.
+
+**`.wslconfig` tab** -- global WSL 2 settings applied to all distros:
+- Memory limit, processor count, swap size, swap file path
+- Networking mode (NAT / Mirrored), localhost forwarding, DNS tunneling, DNS proxy, auto proxy, firewall
+- Auto memory reclaim (disabled / gradual / drop cache), sparse VHD, page reporting
+- Nested virtualization, VM idle timeout, GUI applications (WSLg), debug console, kernel command line
+
+**`wsl.conf` tab** -- per-distro settings with distro selector:
+- **Automount** -- enable/disable Windows drive mounting, mount root, DrvFs options, fstab processing
+- **Interop** -- Windows executable interop, Windows PATH appending
+- **User** -- default login username
+- **Boot** -- systemd toggle, boot command
+- **Network** -- custom hostname, /etc/hosts generation, resolv.conf generation
+
+**Optimize buttons** -- auto-fill recommended values based on your system hardware:
+- Allocates 50% of host RAM and 50% of CPU cores to WSL
+- Enables mirrored networking, DNS tunneling, gradual memory reclaim, sparse VHD, and other sensible defaults
+- Per-distro optimization enables systemd, standard automount, and Windows interop
+
+**Safety features:**
+- Automatic backup (`.wslconfig.bak` / `wsl.conf.bak`) before every save
+- Field validation (memory format, processor range, timeout values)
+- Restart banner with one-click "Restart WSL" after saving changes
+
 ### Tray & Alerts
 
 Background monitoring via the Windows system tray, with smart desktop notifications:
