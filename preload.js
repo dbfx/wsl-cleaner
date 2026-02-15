@@ -33,4 +33,13 @@ contextBridge.exposeInMainWorld('wslCleaner', {
     ipcRenderer.on('task-output', handler);
     return () => ipcRenderer.removeListener('task-output', handler);
   },
+
+  // Auto-update
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  onUpdateStatus: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('update-status', handler);
+    return () => ipcRenderer.removeListener('update-status', handler);
+  },
 });

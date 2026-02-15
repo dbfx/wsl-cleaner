@@ -233,6 +233,105 @@ a:hover {
   font-weight: 500;
 }
 
+/* ── Distro picker ─────────────────────────────────────────────────────────── */
+.distro-picker {
+  position: relative;
+  margin-left: auto;
+}
+
+.distro-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  padding: 3px 12px;
+  transition: all var(--transition);
+  user-select: none;
+}
+.distro-picker-btn:hover {
+  border-color: var(--accent);
+  background: rgba(0, 212, 170, 0.22);
+}
+.distro-picker-btn.open {
+  border-color: var(--accent);
+}
+.distro-picker-btn svg {
+  transition: transform var(--transition);
+  flex-shrink: 0;
+}
+.distro-picker-btn.open svg {
+  transform: rotate(180deg);
+}
+.distro-picker-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.distro-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  padding: 6px 0;
+  animation: fadeIn 0.15s ease;
+}
+
+.distro-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background var(--transition);
+  user-select: none;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.distro-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.distro-dropdown-item input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.distro-dropdown-item .distro-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.distro-dropdown-item .distro-item-default {
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+}
+.distro-dropdown-item .distro-item-state {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+.distro-picker-btn.shake {
+  animation: shake 0.4s ease;
+}
+
 /* ── Main layout (sidebar + pages) ────────────────────────────────────────── */
 #main-layout {
   display: flex;
@@ -995,6 +1094,81 @@ a:hover {
 .stale-empty svg {
   display: block;
   margin: 0 auto 12px;
+}
+.stale-distro-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Update status ─────────────────────────────────────────────────────────── */
+
+.update-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+  min-height: 44px;
+}
+.update-status.hidden {
+  display: none;
+}
+.update-status svg {
+  flex-shrink: 0;
+}
+.update-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+.update-progress-wrap {
+  width: 100%;
+  max-width: 200px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.update-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.update-downloaded {
+  border-color: var(--success);
+  background: rgba(46, 213, 115, 0.08);
+}
+.update-error {
+  border-color: var(--danger);
+  background: rgba(255, 71, 87, 0.08);
+}
+.btn-success {
+  background: linear-gradient(135deg, var(--success), #1abc9c);
+}
+.btn-success:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2ed573, var(--success));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(46, 213, 115, 0.4);
 }
 
 .about-footer {

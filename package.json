@@ -1,11 +1,14 @@
 {
   "name": "wsl-cleaner",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Clean and reclaim disk space from WSL2",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win"
+    "build": "electron-builder --win",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s"
   },
   "author": "dbfx",
   "license": "MIT",
@@ -16,9 +19,17 @@
   "build": {
     "appId": "com.dbfx.wsl-cleaner",
     "productName": "WSL Cleaner",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "dbfx",
+        "repo": "wsl-cleaner"
+      }
+    ],
     "files": [
       "main.js",
       "preload.js",
+      "lib/**/*",
       "renderer/**/*",
       "assets/**/*"
     ],
@@ -37,7 +48,13 @@
     }
   },
   "devDependencies": {
+    "conventional-changelog-cli": "^5.0.0",
     "electron": "^40.4.1",
-    "electron-builder": "^26.0.0"
+    "electron-builder": "^26.0.0",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.7.3"
   }
 }

@@ -2,6 +2,30 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
+const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
+const { filterNoise, parseWslOutput, isValidExternalUrl, STALE_DIR_NAMES } = require('./lib/utils');
+
+// ── Logging setup ────────────────────────────────────────────────────────────
+
+log.transports.file.level = 'info';
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'info';
+
+// ── Single-instance lock ─────────────────────────────────────────────────────
+
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
 
 let mainWindow;
 
@@ -22,7 +46,73 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  // Check for updates after the window is ready
+  mainWindow.webContents.on('did-finish-load', () => {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch(err => {
+        log.warn('Auto-update check failed:', err.message);
+      });
+    }, 3000);
+  });
 }
+
+// ── Auto-updater events ──────────────────────────────────────────────────────
+
+function sendUpdateStatus(data) {
+  mainWindow?.webContents.send('update-status', data);
+}
+
+autoUpdater.on('checking-for-update', () => {
+  log.info('Checking for update...');
+  sendUpdateStatus({ status: 'checking' });
+});
+
+autoUpdater.on('update-available', (info) => {
+  log.info('Update available:', info.version);
+  sendUpdateStatus({ status: 'available', version: info.version });
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  log.info('Update not available. Current version is up to date.');
+  sendUpdateStatus({ status: 'up-to-date', version: info.version });
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  log.info(`Download progress: ${Math.round(progress.percent)}%`);
+  sendUpdateStatus({
+    status: 'downloading',
+    percent: Math.round(progress.percent),
+    transferred: progress.transferred,
+    total: progress.total,
+  });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  log.info('Update downloaded:', info.version);
+  sendUpdateStatus({ status: 'downloaded', version: info.version });
+});
+
+autoUpdater.on('error', (err) => {
+  log.error('Auto-updater error:', err.message);
+  sendUpdateStatus({ status: 'error', message: err.message });
+});
+
+// ── Auto-updater IPC handlers ────────────────────────────────────────────────
+
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { ok: true };
+  } catch (err) {
+    log.error('Manual update check failed:', err.message);
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('install-update', () => {
+  autoUpdater.quitAndInstall();
+});
 
 app.whenReady().then(createWindow);
 
@@ -45,7 +135,7 @@ ipcMain.handle('get-app-version', () => app.getVersion());
 
 ipcMain.handle('open-external-url', async (_event, url) => {
   // Only allow http/https URLs for security
-  if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+  if (isValidExternalUrl(url)) {
     await shell.openExternal(url);
     return { ok: true };
   }
@@ -57,38 +147,10 @@ ipcMain.handle('open-external-url', async (_event, url) => {
 ipcMain.handle('check-wsl', async () => {
   try {
     const output = execSync('wsl -l -v', { encoding: 'utf16le' }).toString().trim();
-    // Parse the output to find distros running WSL 2
-    const lines = output.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    const distros = [];
-    let defaultDistro = null;
-
-    for (const line of lines) {
-      // Skip the header line
-      if (line.startsWith('NAME') || line.includes('NAME')) continue;
-      // Lines look like: "* Ubuntu    Running    2" or "  Debian   Stopped   2"
-      const isDefault = line.startsWith('*');
-      const cleaned = line.replace(/^\*\s*/, '').trim();
-      // Split on multiple spaces
-      const parts = cleaned.split(/\s{2,}/);
-      if (parts.length >= 3) {
-        const name = parts[0].trim();
-        const state = parts[1].trim();
-        const version = parts[2].trim();
-        if (version === '2') {
-          // Skip Docker Desktop internal distros
-          if (name.toLowerCase().includes('docker-desktop')) continue;
-          distros.push({ name, state, isDefault });
-          if (isDefault) defaultDistro = name;
-        }
-      }
-    }
+    const { distros, defaultDistro } = parseWslOutput(output);
 
     if (distros.length === 0) {
       return { ok: false, error: 'No WSL 2 distributions found. Please install a WSL 2 distro first.' };
-    }
-
-    if (!defaultDistro && distros.length > 0) {
-      defaultDistro = distros[0].name;
     }
 
     return { ok: true, distros, defaultDistro };
@@ -101,9 +163,7 @@ ipcMain.handle('check-wsl', async () => {
 
 const wslEnv = { ...process.env, TERM: 'dumb', COLUMNS: '120', LINES: '40' };
 
-function filterNoise(text) {
-  return text.replace(/^.*bogus.*expect trouble\r?\n?/gm, '');
-}
+// filterNoise is imported from lib/utils.js
 
 // ── Detect available tools inside WSL ────────────────────────────────────────
 
@@ -304,12 +364,7 @@ ipcMain.handle('run-wsl-command', async (event, { command, taskId }) => {
 
 // ── Scan for stale directories inside WSL ────────────────────────────────────
 
-const STALE_DIR_NAMES = [
-  'node_modules', 'vendor', '__pycache__', '.next', '.nuxt', '.turbo', '.yarn',
-  'target', '.gradle', '.tox', '.pytest_cache', '.mypy_cache', 'dist',
-  '.parcel-cache', '.cache', '.venv', 'venv', 'elm-stuff',
-  '.terraform', '.serverless', '.nx',
-];
+// STALE_DIR_NAMES is imported from lib/utils.js
 
 ipcMain.handle('scan-stale-dirs', async (_event, { distro, days }) => {
   const staleDays = Math.max(1, parseInt(days, 10) || 30);

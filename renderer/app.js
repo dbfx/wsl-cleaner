@@ -1,395 +1,15 @@
-// ── Task definitions ─────────────────────────────────────────────────────────
-
-const TASKS = [
-  {
-    id: 'apt-update',
-    name: 'Update System Packages',
-    desc: 'Brings all system packages up to date. Uses <code>dnf upgrade</code> on Fedora/RHEL or <code>apt-get update &amp;&amp; upgrade</code> on Debian/Ubuntu.',
-    command: 'if command -v dnf &>/dev/null; then dnf upgrade -y; else DEBIAN_FRONTEND=noninteractive apt-get update -y && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" || true; fi',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'apt-clean',
-    name: 'Clean Old Packages',
-    desc: 'Removes orphaned packages and clears package caches. Uses <code>dnf clean all &amp;&amp; dnf autoremove</code> on Fedora/RHEL or <code>apt autoremove &amp;&amp; clean</code> on Debian/Ubuntu.',
-    command: 'if command -v dnf &>/dev/null; then dnf clean all && dnf autoremove -y; else DEBIAN_FRONTEND=noninteractive apt -y autoremove; apt -y clean; fi || true',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'journal',
-    name: 'Shrink Systemd Journal',
-    desc: 'Reduces journal log files to 10 MB and removes entries older than 2 weeks.',
-    command: 'journalctl --vacuum-size=10M && journalctl --vacuum-time=2weeks',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'tmp',
-    name: 'Clean Temporary Files',
-    desc: 'Deletes all files in <code>/tmp</code> and <code>/var/tmp</code>.',
-    command: 'rm -rf /tmp/* /var/tmp/*',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'caches',
-    name: 'Clean User Caches',
-    desc: 'Clears npm cache, pip cache, and browser caches (Mozilla, Chrome) from your home directory and <code>/root</code>.',
-    command: 'for d in /home/* /root; do [ -d "$d" ] && rm -rf "$d/.npm" "$d/.cache/mozilla" "$d/.cache/google-chrome" "$d/.cache/pip" "$d/.cache/pipx" "$d/.cache/composer" 2>/dev/null; done; (pip cache purge 2>/dev/null || pip3 cache purge 2>/dev/null || true); echo "User caches cleaned"',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'rotated-logs',
-    name: 'Clean Old Rotated Logs',
-    desc: 'Removes compressed and rotated log files (<code>.gz</code>, <code>.old</code>, <code>.1</code>) from <code>/var/log</code>.',
-    command: 'find /var/log -type f \\( -name "*.gz" -o -name "*.old" -o -name "*.1" \\) -delete',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'truncate-logs',
-    name: 'Truncate Active Log Files',
-    desc: 'Empties <code>/var/log/syslog</code> and all <code>*.log</code> files in <code>/var/log</code> without deleting them, freeing space while keeping the files intact for continued logging.',
-    command: 'truncate -s 0 /var/log/syslog 2>/dev/null; truncate -s 0 /var/log/*.log 2>/dev/null; echo "Log files truncated"',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'apt-lists',
-    name: 'Clean Apt Package Lists',
-    desc: 'Removes cached package lists from <code>/var/lib/apt/lists</code>. They are recreated on the next <code>apt update</code>. (Debian/Ubuntu only)',
-    command: 'rm -rf /var/lib/apt/lists/*',
-    asRoot: true,
-    requires: 'apt',
-  },
-  {
-    id: 'snap-cache',
-    name: 'Clean Snap Cache',
-    desc: 'Removes cached snap packages from <code>/var/lib/snapd/cache</code>.',
-    command: 'rm -rf /var/lib/snapd/cache/*',
-    asRoot: true,
-    requires: 'snap',
-  },
-  {
-    id: 'vscode-server',
-    name: 'Clean VS Code / Cursor / Windsurf Server',
-    desc: 'Removes extension caches and log files from <code>~/.vscode-server</code>, <code>~/.cursor-server</code>, and <code>~/.windsurf-server</code>. Preserves extensions and settings.',
-    command: 'rm -rf ~/.vscode-server/extensionCache ~/.vscode-server/bin/*/log ~/.vscode-server/data/logs ~/.cursor-server/extensionCache ~/.cursor-server/bin/*/log ~/.cursor-server/data/logs ~/.windsurf-server/extensionCache ~/.windsurf-server/bin/*/log ~/.windsurf-server/data/logs',
-    asRoot: false,
-    requires: null,
-  },
-  {
-    id: 'trash',
-    name: 'Empty Trash',
-    desc: 'Empties the desktop trash folder at <code>~/.local/share/Trash</code>.',
-    command: 'rm -rf ~/.local/share/Trash/*',
-    asRoot: false,
-    requires: null,
-  },
-  {
-    id: 'thumbnails',
-    name: 'Clean Thumbnail Cache',
-    desc: 'Removes cached image thumbnails from <code>~/.cache/thumbnails</code>.',
-    command: 'rm -rf ~/.cache/thumbnails/*',
-    asRoot: false,
-    requires: null,
-  },
-  {
-    id: 'yarn-cache',
-    name: 'Clean Yarn Cache',
-    desc: 'Runs <code>yarn cache clean</code> to remove all cached Yarn packages.',
-    command: 'yarn cache clean',
-    asRoot: false,
-    requires: 'yarn',
-  },
-  {
-    id: 'go-cache',
-    name: 'Clean Go Module Cache',
-    desc: 'Runs <code>go clean -modcache</code> to remove downloaded Go module files.',
-    command: 'go clean -modcache',
-    asRoot: false,
-    requires: 'go',
-  },
-  {
-    id: 'cargo-cache',
-    name: 'Clean Cargo/Rust Registry Cache',
-    desc: 'Removes cached crate files from <code>~/.cargo/registry/cache</code> and <code>~/.cargo/registry/src</code>.',
-    command: 'rm -rf ~/.cargo/registry/cache/* ~/.cargo/registry/src/*',
-    asRoot: false,
-    requires: null,
-  },
-  {
-    id: 'laravel-clean',
-    name: 'Clean Laravel Logs &amp; Cache',
-    desc: 'Finds Laravel projects under <code>/home</code> and <code>/var/www</code> and removes log files from <code>storage/logs</code> and disk cache from <code>storage/framework/cache/data</code> and <code>storage/framework/views</code>.',
-    command: 'find /home /var/www -maxdepth 5 -name artisan -type f 2>/dev/null | while IFS= read -r artisan; do dir=$(dirname "$artisan"); if [ -d "$dir/storage/logs" ]; then find "$dir/storage/logs" -name "*.log*" -type f -delete 2>/dev/null && echo "Cleaned logs: $dir"; fi; if [ -d "$dir/storage/framework/cache/data" ]; then rm -rf "$dir/storage/framework/cache/data/"* 2>/dev/null && echo "Cleaned cache: $dir"; fi; if [ -d "$dir/storage/framework/views" ]; then find "$dir/storage/framework/views" -name "*.php" -type f -delete 2>/dev/null && echo "Cleaned views: $dir"; fi; done; echo "Laravel cleanup complete"',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'framework-caches',
-    name: 'Clean Framework Build Caches',
-    desc: 'Finds JS/TS projects and removes regenerable build caches: <code>.next/cache</code>, <code>.angular/cache</code>, <code>node_modules/.cache</code>, <code>.svelte-kit</code>, <code>.tsbuildinfo</code> files, and more.',
-    command: [
-      'echo "Cleaning node_modules/.cache..."',
-      'find /home /var/www -maxdepth 8 -type d -name .cache -path "*/node_modules/.cache" -exec rm -rf {} + 2>/dev/null',
-      'echo "Cleaning .next/cache..."',
-      'find /home /var/www -maxdepth 8 -type d -name cache -path "*/.next/cache" -exec rm -rf {} + 2>/dev/null',
-      'echo "Cleaning .angular/cache..."',
-      'find /home /var/www -maxdepth 8 -type d -name cache -path "*/.angular/cache" -exec rm -rf {} + 2>/dev/null',
-      'echo "Cleaning .svelte-kit..."',
-      'find /home /var/www -maxdepth 8 -type d -name .svelte-kit -exec rm -rf {} + 2>/dev/null',
-      'echo "Cleaning .nuxt caches..."',
-      'find /home /var/www -maxdepth 8 -type d \\( -path "*/.nuxt/.cache" -o -path "*/.nuxt/analyze" \\) -exec rm -rf {} + 2>/dev/null',
-      'echo "Cleaning .parcel-cache..."',
-      'find /home /var/www -maxdepth 8 -type d -name .parcel-cache -exec rm -rf {} + 2>/dev/null',
-      'echo "Cleaning .turbo..."',
-      'find /home /var/www -maxdepth 8 -type d -name .turbo -exec rm -rf {} + 2>/dev/null',
-      'echo "Cleaning .tsbuildinfo files..."',
-      'find /home /var/www -maxdepth 8 -type f -name "*.tsbuildinfo" -delete 2>/dev/null',
-      'echo "Framework build caches cleaned"',
-    ].join('; '),
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'docker-prune',
-    name: 'Clean Docker Dangling Artifacts',
-    desc: 'Removes dangling (untagged) images, unused networks, and stale build cache. All named/tagged images, containers, and volumes are preserved.',
-    command: 'docker image prune -f 2>/dev/null && docker network prune -f 2>/dev/null && docker builder prune -f 2>/dev/null && echo "Docker dangling artifacts cleaned"',
-    asRoot: false,
-    requires: 'docker',
-  },
-  {
-    id: 'pip-cache',
-    name: 'Clean Pip Cache Directory',
-    desc: 'Removes downloaded pip packages from <code>~/.cache/pip</code>.',
-    command: 'rm -rf ~/.cache/pip/*',
-    asRoot: false,
-    requires: null,
-  },
-  {
-    id: 'pnpm-cache',
-    name: 'Clean pnpm Store',
-    desc: 'Prunes the pnpm content-addressable store and removes temp files.',
-    command: 'pnpm store prune 2>/dev/null; rm -rf ~/.local/share/pnpm/store/v3/tmp/* 2>/dev/null; echo "pnpm store pruned"',
-    asRoot: false,
-    requires: 'pnpm',
-  },
-  {
-    id: 'composer-cache',
-    name: 'Clean Composer Cache',
-    desc: 'Clears the PHP Composer download cache from <code>~/.cache/composer</code>.',
-    command: 'composer clear-cache 2>/dev/null || rm -rf ~/.cache/composer/* ~/.composer/cache/* 2>/dev/null; echo "Composer cache cleaned"',
-    asRoot: false,
-    requires: 'composer',
-  },
-  {
-    id: 'maven-cache',
-    name: 'Clean Maven Cache',
-    desc: 'Removes cached Maven artifacts from <code>~/.m2/repository</code>. Can reclaim 5&ndash;15 GB for active Java projects.',
-    command: 'rm -rf ~/.m2/repository/*; echo "Maven cache cleaned"',
-    asRoot: false,
-    requires: 'mvn',
-  },
-  {
-    id: 'gradle-cache',
-    name: 'Clean Gradle Cache',
-    desc: 'Removes Gradle build caches and wrapper distributions from <code>~/.gradle</code>.',
-    command: 'rm -rf ~/.gradle/caches/* ~/.gradle/wrapper/dists/*; echo "Gradle cache cleaned"',
-    asRoot: false,
-    requires: 'gradle',
-  },
-  {
-    id: 'conda-cache',
-    name: 'Clean Conda Cache',
-    desc: 'Removes unused Conda packages, tarballs, and cached downloads.',
-    command: 'conda clean --all -y 2>/dev/null || true; echo "Conda cache cleaned"',
-    asRoot: false,
-    requires: 'conda',
-  },
-  {
-    id: 'gem-cache',
-    name: 'Clean Ruby Gems Cache',
-    desc: 'Runs <code>gem cleanup</code> and removes cached gem files from <code>~/.gem</code>.',
-    command: 'gem cleanup 2>/dev/null; rm -rf ~/.gem/ruby/*/cache/* 2>/dev/null; echo "Gem cache cleaned"',
-    asRoot: false,
-    requires: 'gem',
-  },
-  {
-    id: 'nuget-cache',
-    name: 'Clean NuGet Cache',
-    desc: 'Clears .NET NuGet package caches from <code>~/.nuget</code> and local share.',
-    command: 'dotnet nuget locals all --clear 2>/dev/null || rm -rf ~/.nuget/packages/* ~/.local/share/NuGet/* 2>/dev/null; echo "NuGet cache cleaned"',
-    asRoot: false,
-    requires: 'dotnet',
-  },
-  {
-    id: 'deno-cache',
-    name: 'Clean Deno Cache',
-    desc: 'Removes cached remote modules and compiled files from <code>~/.cache/deno</code> and <code>~/.deno/cache</code>.',
-    command: 'rm -rf ~/.cache/deno/* ~/.deno/cache/* 2>/dev/null; echo "Deno cache cleaned"',
-    asRoot: false,
-    requires: 'deno',
-  },
-  {
-    id: 'bun-cache',
-    name: 'Clean Bun Cache',
-    desc: 'Removes cached packages from <code>~/.bun/install/cache</code>.',
-    command: 'rm -rf ~/.bun/install/cache/* 2>/dev/null; echo "Bun cache cleaned"',
-    asRoot: false,
-    requires: 'bun',
-  },
-  {
-    id: 'dart-cache',
-    name: 'Clean Dart/Flutter Pub Cache',
-    desc: 'Clears the Dart/Flutter package cache from <code>~/.pub-cache</code>.',
-    command: 'rm -rf ~/.pub-cache/hosted/pub.dev/*/.cache 2>/dev/null; dart pub cache clean -f 2>/dev/null || rm -rf ~/.pub-cache/_temp/* 2>/dev/null; echo "Pub cache cleaned"',
-    asRoot: false,
-    requires: 'dart',
-  },
-  {
-    id: 'brew-cache',
-    name: 'Clean Homebrew/Linuxbrew Cache',
-    desc: 'Removes old downloads and formula from <code>~/.cache/Homebrew</code>.',
-    command: 'brew cleanup --prune=all -s 2>/dev/null; rm -rf ~/.cache/Homebrew/* 2>/dev/null; echo "Homebrew cache cleaned"',
-    asRoot: false,
-    requires: 'brew',
-  },
-  {
-    id: 'db-logs',
-    name: 'Clean Database Logs',
-    desc: 'Removes MySQL/MariaDB and PostgreSQL log files from <code>/var/log</code>. Safe to clean on dev instances.',
-    command: 'find /var/log/mysql /var/log/postgresql -type f 2>/dev/null -delete; rm -rf /var/lib/mysql/*.log.* 2>/dev/null; echo "Database logs cleaned"',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'k8s-cache',
-    name: 'Clean Kubernetes &amp; Helm Cache',
-    desc: 'Removes kubectl API discovery cache from <code>~/.kube/cache</code> and Helm chart cache from <code>~/.cache/helm</code>.',
-    command: 'rm -rf ~/.kube/cache/* ~/.cache/helm/* 2>/dev/null; echo "Kubernetes caches cleaned"',
-    asRoot: false,
-    requires: null,
-  },
-  {
-    id: 'editor-swap',
-    name: 'Clean Vim/Neovim Swap &amp; Undo Files',
-    desc: 'Removes leftover swap, undo, and shada files from Vim and Neovim.',
-    command: 'rm -rf ~/.local/share/nvim/swap/* ~/.local/share/nvim/shada/* ~/.vim/undo/* ~/.vim/swap/* 2>/dev/null; find ~ -maxdepth 1 -name ".*.swp" -delete 2>/dev/null; echo "Editor swap/undo files cleaned"',
-    asRoot: false,
-    requires: null,
-  },
-  {
-    id: 'git-gc',
-    name: 'Compact Git Repositories',
-    desc: 'Finds all git repos under <code>/home</code> and aggressively compacts them: expires reflog entries and repacks objects with maximum compression. Branches, tags, and reachable commits are untouched. Reflog recovery history is lost.',
-    command: 'find /home -maxdepth 6 -type d -name .git 2>/dev/null | while IFS= read -r gitdir; do repo=$(dirname "$gitdir"); echo "Compacting: $repo"; git -C "$repo" reflog expire --expire=now --all 2>/dev/null; git -C "$repo" gc --prune=now --aggressive 2>/dev/null; done; echo "Git compaction complete"',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'shell-caches',
-    name: 'Clean Shell Completion Caches',
-    desc: 'Removes Zsh completion dumps (<code>~/.zcompdump*</code>), oh-my-zsh cache, and Zsh session files. Rebuilt automatically.',
-    command: 'rm -f ~/.zcompdump* 2>/dev/null; rm -rf ~/.oh-my-zsh/cache/* 2>/dev/null; rm -rf ~/.zsh_sessions/* 2>/dev/null; echo "Shell caches cleaned"',
-    asRoot: false,
-    requires: null,
-  },
-  {
-    id: 'jupyter-runtime',
-    name: 'Clean Jupyter Runtime Files',
-    desc: 'Removes leftover kernel connection files and runtime data from <code>~/.local/share/jupyter/runtime</code>.',
-    command: 'rm -rf ~/.local/share/jupyter/runtime/* 2>/dev/null; echo "Jupyter runtime cleaned"',
-    asRoot: false,
-    requires: null,
-  },
-  {
-    id: 'ccache-clean',
-    name: 'Clean ccache',
-    desc: 'Clears the C/C++ compiler cache from <code>~/.ccache</code>. Can reclaim several GB.',
-    command: 'ccache -C 2>/dev/null || rm -rf ~/.ccache/* 2>/dev/null; echo "ccache cleaned"',
-    asRoot: false,
-    requires: 'ccache',
-  },
-  {
-    id: 'bazel-cache',
-    name: 'Clean Bazel Cache',
-    desc: 'Removes Bazel build cache from <code>~/.cache/bazel</code>. Can be 10+ GB.',
-    command: 'rm -rf ~/.cache/bazel/* 2>/dev/null; echo "Bazel cache cleaned"',
-    asRoot: false,
-    requires: 'bazel',
-  },
-  {
-    id: 'core-dumps',
-    name: 'Clean Core Dumps &amp; Crash Reports',
-    desc: 'Removes crash reports from <code>/var/crash</code> and coredumps from <code>/var/lib/systemd/coredump</code>.',
-    command: 'rm -rf /var/crash/* /var/lib/systemd/coredump/* 2>/dev/null; echo "Core dumps cleaned"',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'old-kernels',
-    name: 'Remove Old Kernel Packages',
-    desc: 'WSL uses its own kernel, so any installed <code>linux-image</code>, <code>linux-headers</code>, or <code>linux-modules</code> packages are dead weight. (Debian/Ubuntu only)',
-    command: 'dpkg -l "linux-image-*" 2>/dev/null | awk "/^ii/{print \\$2}" | xargs -r apt-get -y purge 2>/dev/null; dpkg -l "linux-headers-*" 2>/dev/null | awk "/^ii/{print \\$2}" | xargs -r apt-get -y purge 2>/dev/null; dpkg -l "linux-modules-*" 2>/dev/null | awk "/^ii/{print \\$2}" | xargs -r apt-get -y purge 2>/dev/null; echo "Old kernel packages removed"',
-    asRoot: true,
-    requires: 'apt',
-  },
-  {
-    id: 'font-cache',
-    name: 'Clean Font Cache',
-    desc: 'Removes font cache files from <code>/var/cache/fontconfig</code> and <code>~/.cache/fontconfig</code>. Rebuilt automatically on demand.',
-    command: 'rm -rf /var/cache/fontconfig/* ~/.cache/fontconfig/* 2>/dev/null; echo "Font cache cleaned"',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'fstrim',
-    name: 'Filesystem TRIM',
-    desc: 'Runs <code>fstrim</code> to inform the virtual disk which blocks are free. Makes VHDX compaction dramatically more effective. Falls back to zero-filling free space if TRIM is not supported.',
-    command: 'fstrim / 2>/dev/null || (echo "fstrim not supported, zero-filling free space..." && dd if=/dev/zero of=/zero.fill bs=1M 2>/dev/null; rm -f /zero.fill); echo "TRIM complete"',
-    asRoot: true,
-    requires: null,
-  },
-  {
-    id: 'general-cache',
-    name: 'Clean All User Caches',
-    desc: 'Blanket cleanup of the entire <code>~/.cache</code> directory. Catches miscellaneous app caches not covered by other tasks.',
-    command: 'du -sh ~/.cache 2>/dev/null; rm -rf ~/.cache/*; echo "User cache cleaned"',
-    asRoot: false,
-    requires: null,
-    aggressive: true,
-  },
-  {
-    id: 'man-pages',
-    name: 'Remove Man Pages &amp; Docs',
-    desc: 'Deletes offline manual pages, documentation, and info files from <code>/usr/share</code>. Saves 200&ndash;400 MB. Regenerated when packages are reinstalled.',
-    command: 'rm -rf /usr/share/man/* /usr/share/doc/* /usr/share/info/*; echo "Man pages and docs removed"',
-    asRoot: true,
-    requires: null,
-    aggressive: true,
-  },
-  {
-    id: 'locales',
-    name: 'Remove Unused Locales',
-    desc: 'Removes all locale data except English from <code>/usr/share/locale</code>. Saves 100+ MB. Do not use if you need non-English locales.',
-    command: 'find /usr/share/locale -maxdepth 1 -mindepth 1 -type d ! -name "en*" -exec rm -rf {} + 2>/dev/null; echo "Unused locales removed"',
-    asRoot: true,
-    requires: null,
-    aggressive: true,
-  },
-];
+// TASKS is loaded from tasks.js (included via <script> tag before this file)
+// formatBytes, escapeHtml, estimateTotalSize are loaded from utils.js
 
 // ── State ────────────────────────────────────────────────────────────────────
 
 let state = {
-  distro: null,
-  tools: {},
-  vhdxFiles: [],
+  distros: [],            // full list from check-wsl: [{ name, state, isDefault }]
+  selectedDistros: [],    // user-checked distro names
+  toolsByDistro: {},      // { "Ubuntu": { npm: true, ... }, ... }
+  vhdxByDistro: {},       // { "Ubuntu": [{ path, size }], ... }
+  tools: {},              // merged tool availability across selected distros
+  vhdxFiles: [],          // merged VHDX list across selected distros
   taskEnabled: {},
   isRunning: false,
   currentPage: localStorage.getItem('wsl-cleaner-page') || 'simple',
@@ -408,7 +28,9 @@ const loadingScreen = $('#loading-screen');
 const mainScreen = $('#main-screen');
 const errorMessage = $('#error-message');
 const statusText = $('#status-text');
-const distroName = $('#distro-name');
+const distroPickerBtn = $('#distro-picker-btn');
+const distroPickerLabel = $('#distro-picker-label');
+const distroDropdown = $('#distro-dropdown');
 
 // Advanced page
 const taskCardsEl = $('#task-cards');
@@ -436,7 +58,9 @@ const simpleSpaceSaved = $('#simple-space-saved');
 // About page
 const aboutVersion = $('#about-version');
 const btnCheckUpdates = $('#btn-check-updates');
+const btnInstallUpdate = $('#btn-install-update');
 const btnGitHub = $('#btn-github');
+const updateStatusEl = $('#update-status');
 
 // ── Window controls ──────────────────────────────────────────────────────────
 
@@ -446,13 +70,7 @@ $('#btn-close').addEventListener('click', () => window.wslCleaner.close());
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatBytes(bytes) {
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  const val = bytes / Math.pow(1024, i);
-  return val.toFixed(i > 1 ? 2 : 0) + ' ' + units[i];
-}
+// formatBytes is loaded from utils.js
 
 function showScreen(screen) {
   [errorScreen, loadingScreen, mainScreen].forEach(s => s.classList.add('hidden'));
@@ -511,6 +129,131 @@ $$('.nav-item').forEach(item => {
   });
 });
 
+// ── Distro picker ─────────────────────────────────────────────────────────────
+
+function updatePickerLabel() {
+  const sel = state.selectedDistros;
+  if (sel.length === 0) {
+    distroPickerLabel.textContent = 'No distro';
+  } else if (sel.length === 1) {
+    distroPickerLabel.textContent = sel[0];
+  } else {
+    distroPickerLabel.textContent = `${sel.length} distros selected`;
+  }
+}
+
+function renderDistroPicker() {
+  distroDropdown.innerHTML = '';
+  for (const d of state.distros) {
+    const item = document.createElement('label');
+    item.className = 'distro-dropdown-item';
+    const checked = state.selectedDistros.includes(d.name) ? 'checked' : '';
+    const singleDistro = state.distros.length === 1;
+    item.innerHTML = `
+      <input type="checkbox" data-distro="${escapeHtml(d.name)}" ${checked} ${singleDistro ? 'disabled' : ''}>
+      <span class="distro-item-name">${escapeHtml(d.name)}</span>
+      ${d.isDefault ? '<span class="distro-item-default">default</span>' : ''}
+      <span class="distro-item-state">${escapeHtml(d.state)}</span>
+    `;
+    const cb = item.querySelector('input');
+    cb.addEventListener('change', () => {
+      if (cb.checked) {
+        if (!state.selectedDistros.includes(d.name)) {
+          state.selectedDistros.push(d.name);
+        }
+      } else {
+        // Prevent empty selection
+        if (state.selectedDistros.length <= 1) {
+          cb.checked = true;
+          distroPickerBtn.classList.add('shake');
+          setTimeout(() => distroPickerBtn.classList.remove('shake'), 400);
+          return;
+        }
+        state.selectedDistros = state.selectedDistros.filter(n => n !== d.name);
+      }
+      updatePickerLabel();
+      refreshDistroData();
+    });
+    distroDropdown.appendChild(item);
+  }
+  updatePickerLabel();
+}
+
+// Toggle dropdown open/close
+distroPickerBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (state.isRunning) return;
+  const isOpen = !distroDropdown.classList.contains('hidden');
+  distroDropdown.classList.toggle('hidden', isOpen);
+  distroPickerBtn.classList.toggle('open', !isOpen);
+});
+
+// Close dropdown when clicking outside
+document.addEventListener('click', () => {
+  distroDropdown.classList.add('hidden');
+  distroPickerBtn.classList.remove('open');
+});
+
+// Prevent dropdown from closing when clicking inside it
+distroDropdown.addEventListener('click', (e) => {
+  e.stopPropagation();
+});
+
+async function refreshDistroData() {
+  // Detect tools and VHDX for each selected distro
+  state.toolsByDistro = {};
+  state.vhdxByDistro = {};
+
+  for (const distro of state.selectedDistros) {
+    state.toolsByDistro[distro] = await window.wslCleaner.detectTools(distro);
+    state.vhdxByDistro[distro] = await window.wslCleaner.findVhdx(distro);
+  }
+
+  // Merge tools: available if ANY selected distro has it
+  const mergedTools = {};
+  for (const distro of state.selectedDistros) {
+    const dt = state.toolsByDistro[distro] || {};
+    for (const [key, val] of Object.entries(dt)) {
+      if (val) mergedTools[key] = true;
+      else if (!(key in mergedTools)) mergedTools[key] = false;
+    }
+  }
+  state.tools = mergedTools;
+
+  // Merge VHDX files with distro annotation
+  state.vhdxFiles = [];
+  for (const distro of state.selectedDistros) {
+    const files = state.vhdxByDistro[distro] || [];
+    for (const f of files) {
+      state.vhdxFiles.push({ ...f, distro });
+    }
+  }
+
+  renderTasks();
+  updateVhdxDisplay();
+}
+
+function updateVhdxDisplay() {
+  if (state.vhdxFiles.length > 0) {
+    if (state.vhdxFiles.length === 1) {
+      vhdxPathEl.textContent = state.vhdxFiles[0].path;
+      vhdxPathEl.title = state.vhdxFiles[0].path;
+      vhdxSizeEl.textContent = formatBytes(state.vhdxFiles[0].size);
+    } else {
+      const totalSize = state.vhdxFiles.reduce((sum, f) => sum + f.size, 0);
+      vhdxPathEl.textContent = `${state.vhdxFiles.length} virtual disks (${state.selectedDistros.join(', ')})`;
+      vhdxPathEl.title = state.vhdxFiles.map(f => `${f.distro}: ${f.path}`).join('\n');
+      vhdxSizeEl.textContent = formatBytes(totalSize);
+    }
+    const totalSize = state.vhdxFiles.reduce((sum, f) => sum + f.size, 0);
+    simpleSize.textContent = formatBytes(totalSize);
+  } else {
+    vhdxPathEl.textContent = 'Not found';
+    vhdxSizeEl.textContent = '--';
+    simpleSize.textContent = '--';
+  }
+}
+
 // ── Build task cards (Advanced) ──────────────────────────────────────────────
 
 function renderTasks() {
@@ -566,31 +309,47 @@ btnRunCleanup.addEventListener('click', async () => {
   state.isRunning = true;
   btnRunCleanup.disabled = true;
   btnCompact.disabled = true;
+  distroPickerBtn.disabled = true;
   logOutput.textContent = '';
   logPanel.classList.remove('hidden');
 
-  const enabledTasks = TASKS.filter(t => {
-    const available = !t.requires || state.tools[t.requires];
-    return available && state.taskEnabled[t.id];
-  });
+  for (const distro of state.selectedDistros) {
+    const distroTools = state.toolsByDistro[distro] || {};
 
-  for (const task of enabledTasks) {
-    appendLog(`\n── ${task.name} ──────────────────────────────\n`);
-    setTaskState(task.id, 'running');
+    if (state.selectedDistros.length > 1) {
+      appendLog(`\n╔══════════════════════════════════════════════╗\n`);
+      appendLog(`║  Cleaning: ${distro}\n`);
+      appendLog(`╚══════════════════════════════════════════════╝\n`);
+    }
 
-    const result = await window.wslCleaner.runCleanup({
-      distro: state.distro,
-      taskId: task.id,
-      command: task.command,
-      asRoot: task.asRoot,
+    const enabledTasks = TASKS.filter(t => {
+      const available = !t.requires || distroTools[t.requires];
+      return available && state.taskEnabled[t.id];
     });
 
-    if (result.ok) {
-      setTaskState(task.id, 'completed');
-      appendLog(`\n✓ ${task.name} completed.\n`);
-    } else {
-      setTaskState(task.id, 'failed');
-      appendLog(`\n✗ ${task.name} failed (exit code ${result.code}).\n`);
+    for (const task of enabledTasks) {
+      appendLog(`\n── ${task.name} ──────────────────────────────\n`);
+      setTaskState(task.id, 'running');
+
+      const result = await window.wslCleaner.runCleanup({
+        distro,
+        taskId: task.id,
+        command: task.command,
+        asRoot: task.asRoot,
+      });
+
+      if (result.ok) {
+        setTaskState(task.id, 'completed');
+        appendLog(`\n✓ ${task.name} completed.\n`);
+      } else {
+        setTaskState(task.id, 'failed');
+        appendLog(`\n✗ ${task.name} failed (exit code ${result.code}).\n`);
+      }
+    }
+
+    // Reset task card states before next distro
+    if (state.selectedDistros.length > 1) {
+      TASKS.forEach(t => setTaskState(t.id, null));
     }
   }
 
@@ -598,6 +357,7 @@ btnRunCleanup.addEventListener('click', async () => {
   state.isRunning = false;
   btnRunCleanup.disabled = false;
   btnCompact.disabled = false;
+  distroPickerBtn.disabled = false;
 });
 
 // ── Clear log ────────────────────────────────────────────────────────────────
@@ -619,7 +379,7 @@ const staleDeleteSummary = $('#stale-delete-summary');
 const staleEnabledCb = $('#stale-enabled-cb');
 const staleDaysInput = $('#stale-days-input');
 
-let staleDirs = []; // cached scan results
+let staleDirs = []; // cached scan results: [{ path, size, distro }]
 
 function getStaleDays() {
   return Math.max(1, parseInt(staleDaysInput.value, 10) || 30);
@@ -653,41 +413,45 @@ function renderStaleDirs(dirs) {
     &mdash; total estimated size: <span class="summary-size">${estimateTotalSize(dirs)}</span>
   `;
 
-  // Render list items
-  staleDirList.innerHTML = dirs.map((d, i) => {
-    // Highlight the directory name in the path
-    const lastSlash = d.path.lastIndexOf('/');
-    const parentPath = d.path.substring(0, lastSlash + 1);
-    const dirName = d.path.substring(lastSlash + 1);
-    return `
-      <div class="stale-dir-item" data-index="${i}">
-        <input type="checkbox" class="stale-cb" data-index="${i}" checked />
-        <div class="stale-dir-path" title="${escapeHtml(d.path)}">
-          ${escapeHtml(parentPath)}<span class="stale-dir-name">${escapeHtml(dirName)}</span>
-        </div>
-        <span class="stale-dir-size">${escapeHtml(d.size)}</span>
-      </div>`;
-  }).join('');
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function estimateTotalSize(dirs) {
-  // Parse human-readable sizes like "120M", "4.5G", "240K" and sum them
-  let totalBytes = 0;
-  const multipliers = { K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 };
+  // Group by distro for display
+  const multiDistro = state.selectedDistros.length > 1;
+  const grouped = {};
   for (const d of dirs) {
-    const match = d.size.match(/^([\d.]+)\s*([KMGT])?/i);
-    if (match) {
-      const num = parseFloat(match[1]);
-      const unit = (match[2] || '').toUpperCase();
-      totalBytes += num * (multipliers[unit] || 1);
+    const key = d.distro || state.selectedDistros[0];
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(d);
+  }
+
+  let html = '';
+  for (const distro of state.selectedDistros) {
+    const group = grouped[distro];
+    if (!group || group.length === 0) continue;
+
+    if (multiDistro) {
+      html += `<div class="stale-distro-header">${escapeHtml(distro)}</div>`;
+    }
+
+    for (const d of group) {
+      const i = dirs.indexOf(d);
+      const lastSlash = d.path.lastIndexOf('/');
+      const parentPath = d.path.substring(0, lastSlash + 1);
+      const dirName = d.path.substring(lastSlash + 1);
+      html += `
+        <div class="stale-dir-item" data-index="${i}">
+          <input type="checkbox" class="stale-cb" data-index="${i}" checked />
+          <div class="stale-dir-path" title="${escapeHtml(d.path)}">
+            ${escapeHtml(parentPath)}<span class="stale-dir-name">${escapeHtml(dirName)}</span>
+          </div>
+          <span class="stale-dir-size">${escapeHtml(d.size)}</span>
+        </div>`;
     }
   }
-  return formatBytes(totalBytes);
+  staleDirList.innerHTML = html;
 }
+
+// escapeHtml is loaded from utils.js
+
+// estimateTotalSize is loaded from utils.js
 
 function getCheckedStalePaths() {
   const cbs = staleDirList.querySelectorAll('.stale-cb:checked');
@@ -715,14 +479,22 @@ btnScanStale.addEventListener('click', async () => {
   if (state.isRunning) return;
   state.isRunning = true;
   btnScanStale.disabled = true;
+  distroPickerBtn.disabled = true;
   const days = getStaleDays();
   btnScanStale.innerHTML = `<div class="task-spinner" style="width:18px;height:18px;border-width:2px;"></div> Scanning (${days} days)...`;
   staleResults.classList.add('hidden');
   staleDeleteResult.classList.add('hidden');
 
   try {
-    const results = await window.wslCleaner.scanStaleDirs({ distro: state.distro, days });
-    renderStaleDirs(results);
+    const allResults = [];
+    for (const distro of state.selectedDistros) {
+      const results = await window.wslCleaner.scanStaleDirs({ distro, days });
+      // Tag each result with its distro
+      for (const r of results) {
+        allResults.push({ ...r, distro });
+      }
+    }
+    renderStaleDirs(allResults);
     staleResults.classList.remove('hidden');
   } catch (err) {
     staleScanSummary.innerHTML = `<span style="color: var(--danger);">Scan failed: ${escapeHtml(err.message || String(err))}</span>`;
@@ -731,6 +503,7 @@ btnScanStale.addEventListener('click', async () => {
   }
 
   btnScanStale.disabled = false;
+  distroPickerBtn.disabled = false;
   btnScanStale.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Scan for Stale Directories`;
   state.isRunning = false;
 });
@@ -738,36 +511,54 @@ btnScanStale.addEventListener('click', async () => {
 // Delete button
 btnDeleteStale.addEventListener('click', async () => {
   if (state.isRunning) return;
-  const paths = getCheckedStalePaths();
-  if (paths.length === 0) return;
+  const checkedIndices = Array.from(staleDirList.querySelectorAll('.stale-cb:checked'))
+    .map(cb => parseInt(cb.dataset.index));
+  if (checkedIndices.length === 0) return;
+
+  // Group checked paths by distro
+  const byDistro = {};
+  for (const i of checkedIndices) {
+    const d = staleDirs[i];
+    const distro = d.distro || state.selectedDistros[0];
+    if (!byDistro[distro]) byDistro[distro] = [];
+    byDistro[distro].push(d.path);
+  }
 
   state.isRunning = true;
   btnDeleteStale.disabled = true;
   btnScanStale.disabled = true;
-  btnDeleteStale.innerHTML = `<div class="task-spinner" style="width:18px;height:18px;border-width:2px;"></div> Deleting ${paths.length} director${paths.length === 1 ? 'y' : 'ies'}...`;
+  distroPickerBtn.disabled = true;
+  btnDeleteStale.innerHTML = `<div class="task-spinner" style="width:18px;height:18px;border-width:2px;"></div> Deleting ${checkedIndices.length} director${checkedIndices.length === 1 ? 'y' : 'ies'}...`;
   staleDeleteResult.classList.add('hidden');
 
   // Show log panel for output
   logPanel.classList.remove('hidden');
-  appendLog(`\n── Deleting ${paths.length} stale director${paths.length === 1 ? 'y' : 'ies'} ──────────────────────────────\n`);
+  appendLog(`\n── Deleting ${checkedIndices.length} stale director${checkedIndices.length === 1 ? 'y' : 'ies'} ──────────────────────────────\n`);
 
   try {
-    const results = await window.wslCleaner.deleteStaleDirs({
-      distro: state.distro,
-      paths,
-      taskId: 'stale-delete',
-    });
+    const allResults = [];
+    for (const [distro, paths] of Object.entries(byDistro)) {
+      if (state.selectedDistros.length > 1) {
+        appendLog(`\n  Distro: ${distro}\n`);
+      }
+      const results = await window.wslCleaner.deleteStaleDirs({
+        distro,
+        paths,
+        taskId: 'stale-delete',
+      });
+      allResults.push(...results);
+    }
 
-    const successCount = results.filter(r => r.ok).length;
-    const failCount = results.length - successCount;
+    const successCount = allResults.filter(r => r.ok).length;
+    const failCount = allResults.length - successCount;
 
-    appendLog(`\n✓ Deleted ${successCount} of ${results.length} directories.${failCount > 0 ? ` ${failCount} failed.` : ''}\n`);
+    appendLog(`\n✓ Deleted ${successCount} of ${allResults.length} directories.${failCount > 0 ? ` ${failCount} failed.` : ''}\n`);
 
-    staleDeleteSummary.textContent = `Successfully deleted ${successCount} of ${results.length} directories.${failCount > 0 ? ` ${failCount} failed.` : ''}`;
+    staleDeleteSummary.textContent = `Successfully deleted ${successCount} of ${allResults.length} directories.${failCount > 0 ? ` ${failCount} failed.` : ''}`;
     staleDeleteResult.classList.remove('hidden');
 
     // Remove deleted items from the list
-    const deletedPaths = new Set(results.filter(r => r.ok).map(r => r.path));
+    const deletedPaths = new Set(allResults.filter(r => r.ok).map(r => r.path));
     const remaining = staleDirs.filter(d => !deletedPaths.has(d.path));
     renderStaleDirs(remaining);
   } catch (err) {
@@ -776,28 +567,12 @@ btnDeleteStale.addEventListener('click', async () => {
 
   btnDeleteStale.disabled = false;
   btnScanStale.disabled = false;
+  distroPickerBtn.disabled = false;
   btnDeleteStale.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete Selected`;
   state.isRunning = false;
 });
 
 // ── Disk compaction (Advanced) ───────────────────────────────────────────────
-
-async function loadVhdxInfo() {
-  const files = await window.wslCleaner.findVhdx(state.distro);
-  state.vhdxFiles = files;
-
-  if (files.length > 0) {
-    const main = files[0];
-    vhdxPathEl.textContent = main.path;
-    vhdxPathEl.title = main.path;
-    vhdxSizeEl.textContent = formatBytes(main.size);
-    simpleSize.textContent = formatBytes(main.size);
-  } else {
-    vhdxPathEl.textContent = 'Not found';
-    vhdxSizeEl.textContent = '--';
-    simpleSize.textContent = '--';
-  }
-}
 
 btnCompact.addEventListener('click', async () => {
   if (state.isRunning) return;
@@ -810,27 +585,47 @@ btnCompact.addEventListener('click', async () => {
   state.isRunning = true;
   btnCompact.disabled = true;
   btnRunCleanup.disabled = true;
+  distroPickerBtn.disabled = true;
   compactResult.classList.add('hidden');
   logOutput.textContent = '';
   logPanel.classList.remove('hidden');
 
-  const vhdxPath = state.vhdxFiles[0].path;
+  let totalBefore = 0;
+  let totalAfter = 0;
 
-  appendLog('── Measuring disk size before compaction...\n');
-  const beforeResult = await window.wslCleaner.getFileSize(vhdxPath);
-  const beforeSize = beforeResult.ok ? beforeResult.size : 0;
-  appendLog(`   Before: ${formatBytes(beforeSize)}\n`);
+  // Measure all VHDX sizes before
+  appendLog('── Measuring disk sizes before compaction...\n');
+  const beforeSizes = {};
+  for (const vf of state.vhdxFiles) {
+    const res = await window.wslCleaner.getFileSize(vf.path);
+    const sz = res.ok ? res.size : 0;
+    beforeSizes[vf.path] = sz;
+    totalBefore += sz;
+    if (state.vhdxFiles.length > 1) {
+      appendLog(`   ${vf.distro}: ${formatBytes(sz)}\n`);
+    } else {
+      appendLog(`   Before: ${formatBytes(sz)}\n`);
+    }
+  }
 
+  // Run fstrim on each selected distro
   appendLog('\n── Running filesystem TRIM...\n');
   const fstrimTask = TASKS.find(t => t.id === 'fstrim');
-  const fstrimRes = await window.wslCleaner.runCleanup({
-    distro: state.distro,
-    taskId: 'compact-fstrim',
-    command: fstrimTask.command,
-    asRoot: fstrimTask.asRoot,
-  });
-  appendLog(fstrimRes.ok ? '   TRIM complete.\n' : '   TRIM finished (may have used zero-fill fallback).\n');
+  for (const distro of state.selectedDistros) {
+    const fstrimRes = await window.wslCleaner.runCleanup({
+      distro,
+      taskId: 'compact-fstrim',
+      command: fstrimTask.command,
+      asRoot: fstrimTask.asRoot,
+    });
+    if (state.selectedDistros.length > 1) {
+      appendLog(`   ${distro}: ${fstrimRes.ok ? 'TRIM complete' : 'TRIM finished (fallback)'}.\n`);
+    } else {
+      appendLog(fstrimRes.ok ? '   TRIM complete.\n' : '   TRIM finished (may have used zero-fill fallback).\n');
+    }
+  }
 
+  // Shutdown, update, shutdown (once for all distros)
   appendLog('\n── Shutting down WSL...\n');
   await window.wslCleaner.runWslCommand({ command: 'wsl --shutdown', taskId: 'compact' });
   appendLog('   WSL shut down.\n');
@@ -843,37 +638,56 @@ btnCompact.addEventListener('click', async () => {
   await window.wslCleaner.runWslCommand({ command: 'wsl --shutdown', taskId: 'compact' });
   appendLog('   WSL stopped.\n');
 
-  appendLog('\n── Compacting virtual disk (Optimize-VHD)...\n');
+  // Compact each VHDX
+  appendLog('\n── Compacting virtual disk(s) (Optimize-VHD)...\n');
   appendLog('   You may see a UAC elevation prompt.\n');
-  const compactRes = await window.wslCleaner.optimizeVhdx({ vhdxPath, taskId: 'compact' });
-  if (compactRes.ok) {
-    appendLog('   Compaction finished.\n');
-  } else {
-    appendLog(`   Compaction issue: ${compactRes.output}\n`);
+  for (const vf of state.vhdxFiles) {
+    if (state.vhdxFiles.length > 1) {
+      appendLog(`   Compacting ${vf.distro}...\n`);
+    }
+    const compactRes = await window.wslCleaner.optimizeVhdx({ vhdxPath: vf.path, taskId: 'compact' });
+    if (compactRes.ok) {
+      appendLog(`   ${state.vhdxFiles.length > 1 ? vf.distro + ': ' : ''}Compaction finished.\n`);
+    } else {
+      appendLog(`   ${state.vhdxFiles.length > 1 ? vf.distro + ': ' : ''}Compaction issue: ${compactRes.output}\n`);
+    }
   }
 
+  // Restart each selected distro
   appendLog('\n── Restarting WSL...\n');
-  await window.wslCleaner.runWslCommand({ command: `wsl -d ${state.distro} -- echo "WSL restarted"`, taskId: 'compact' });
+  for (const distro of state.selectedDistros) {
+    await window.wslCleaner.runWslCommand({ command: `wsl -d ${distro} -- echo "WSL restarted"`, taskId: 'compact' });
+  }
   appendLog('   WSL is running.\n');
 
-  appendLog('\n── Measuring disk size after compaction...\n');
-  const afterResult = await window.wslCleaner.getFileSize(vhdxPath);
-  const afterSize = afterResult.ok ? afterResult.size : 0;
-  appendLog(`   After: ${formatBytes(afterSize)}\n`);
+  // Measure after
+  appendLog('\n── Measuring disk sizes after compaction...\n');
+  for (const vf of state.vhdxFiles) {
+    const res = await window.wslCleaner.getFileSize(vf.path);
+    const sz = res.ok ? res.size : 0;
+    totalAfter += sz;
+    if (state.vhdxFiles.length > 1) {
+      appendLog(`   ${vf.distro}: ${formatBytes(sz)}\n`);
+    } else {
+      appendLog(`   After: ${formatBytes(sz)}\n`);
+    }
+  }
 
-  const saved = beforeSize - afterSize;
+  const saved = totalBefore - totalAfter;
   appendLog(`\n══ Space saved: ${formatBytes(Math.max(0, saved))} ══\n`);
 
-  sizeBefore.textContent = formatBytes(beforeSize);
-  sizeAfter.textContent = formatBytes(afterSize);
+  sizeBefore.textContent = formatBytes(totalBefore);
+  sizeAfter.textContent = formatBytes(totalAfter);
   spaceSaved.textContent = saved > 0 ? formatBytes(saved) : '0 B (no change)';
   compactResult.classList.remove('hidden');
-  vhdxSizeEl.textContent = formatBytes(afterSize);
-  simpleSize.textContent = formatBytes(afterSize);
+
+  // Update displayed sizes
+  updateVhdxDisplay();
 
   state.isRunning = false;
   btnCompact.disabled = false;
   btnRunCleanup.disabled = false;
+  distroPickerBtn.disabled = false;
 });
 
 // ── Simple mode helpers ──────────────────────────────────────────────────────
@@ -914,107 +728,194 @@ btnSimpleGo.addEventListener('click', async () => {
 
   state.isRunning = true;
   btnSimpleGo.disabled = true;
+  distroPickerBtn.disabled = true;
   simpleResult.classList.add('hidden');
   simpleSteps.classList.remove('hidden');
   resetSimpleSteps();
 
-  const vhdxPath = state.vhdxFiles[0].path;
+  // Measure total VHDX size before
+  let totalBefore = 0;
+  for (const vf of state.vhdxFiles) {
+    const res = await window.wslCleaner.getFileSize(vf.path);
+    totalBefore += res.ok ? res.size : 0;
+  }
 
-  // Measure before
-  const beforeResult = await window.wslCleaner.getFileSize(vhdxPath);
-  const beforeSize = beforeResult.ok ? beforeResult.size : 0;
-
-  // Step 1: Scan stale directories FIRST (before cleanup tasks modify mtimes)
+  // Step 1: Scan & remove stale directories on each distro
   setSimpleStep('stale', 'active');
-  let stalePaths = [];
-  try {
-    const staleDirsFound = await window.wslCleaner.scanStaleDirs({ distro: state.distro, days: 30 });
-    stalePaths = staleDirsFound.map(d => d.path);
-  } catch { /* scan failed, continue anyway */ }
-
-  // Delete stale directories now
-  if (stalePaths.length > 0) {
+  for (const distro of state.selectedDistros) {
+    let stalePaths = [];
     try {
-      await window.wslCleaner.deleteStaleDirs({
-        distro: state.distro,
-        paths: stalePaths,
-        taskId: 'simple-stale',
-      });
-    } catch { /* ignore deletion errors */ }
+      const staleDirsFound = await window.wslCleaner.scanStaleDirs({ distro, days: 30 });
+      stalePaths = staleDirsFound.map(d => d.path);
+    } catch { /* scan failed, continue anyway */ }
+
+    if (stalePaths.length > 0) {
+      try {
+        await window.wslCleaner.deleteStaleDirs({
+          distro,
+          paths: stalePaths,
+          taskId: 'simple-stale',
+        });
+      } catch { /* ignore deletion errors */ }
+    }
   }
   setSimpleStep('stale', 'done');
 
-  // Step 2: Run all available non-aggressive cleanup tasks (fstrim has its own step)
+  // Step 2: Run cleanup tasks on each distro
   setSimpleStep('cleanup', 'active');
-  const availableTasks = TASKS.filter(t => !t.aggressive && t.id !== 'fstrim' && (!t.requires || state.tools[t.requires]));
   let cleanupOk = true;
-
-  for (const task of availableTasks) {
-    const result = await window.wslCleaner.runCleanup({
-      distro: state.distro,
-      taskId: task.id,
-      command: task.command,
-      asRoot: task.asRoot,
-    });
-    if (!result.ok) cleanupOk = false;
+  for (const distro of state.selectedDistros) {
+    const distroTools = state.toolsByDistro[distro] || {};
+    const availableTasks = TASKS.filter(t => !t.aggressive && t.id !== 'fstrim' && (!t.requires || distroTools[t.requires]));
+    for (const task of availableTasks) {
+      const result = await window.wslCleaner.runCleanup({
+        distro,
+        taskId: task.id,
+        command: task.command,
+        asRoot: task.asRoot,
+      });
+      if (!result.ok) cleanupOk = false;
+    }
   }
   setSimpleStep('cleanup', cleanupOk ? 'done' : 'failed');
 
-  // Step 1c: Filesystem TRIM (makes VHDX compaction much more effective)
+  // Step 3: Filesystem TRIM on each distro
   setSimpleStep('fstrim', 'active');
   const fstrimTask = TASKS.find(t => t.id === 'fstrim');
-  const fstrimResult = await window.wslCleaner.runCleanup({
-    distro: state.distro,
-    taskId: 'fstrim',
-    command: fstrimTask.command,
-    asRoot: fstrimTask.asRoot,
-  });
-  setSimpleStep('fstrim', fstrimResult.ok ? 'done' : 'failed');
+  let fstrimOk = true;
+  for (const distro of state.selectedDistros) {
+    const fstrimResult = await window.wslCleaner.runCleanup({
+      distro,
+      taskId: 'fstrim',
+      command: fstrimTask.command,
+      asRoot: fstrimTask.asRoot,
+    });
+    if (!fstrimResult.ok) fstrimOk = false;
+  }
+  setSimpleStep('fstrim', fstrimOk ? 'done' : 'failed');
 
-  // Step 2: Shutdown WSL
+  // Step 4: Shutdown WSL (once for all distros)
   setSimpleStep('shutdown', 'active');
   await window.wslCleaner.runWslCommand({ command: 'wsl --shutdown', taskId: 'simple' });
   setSimpleStep('shutdown', 'done');
 
-  // Step 3: Update WSL
+  // Step 5: Update WSL
   setSimpleStep('update', 'active');
   await window.wslCleaner.runWslCommand({ command: 'wsl --update', taskId: 'simple' });
   setSimpleStep('update', 'done');
 
-  // Step 4: Compact disk (ensure WSL stopped, then Optimize-VHD with UAC elevation)
+  // Step 6: Compact all VHDX files
   setSimpleStep('compact', 'active');
   await window.wslCleaner.runWslCommand({ command: 'wsl --shutdown', taskId: 'simple' });
-  const compactRes = await window.wslCleaner.optimizeVhdx({ vhdxPath, taskId: 'simple' });
-  setSimpleStep('compact', compactRes.ok ? 'done' : 'failed');
+  let compactOk = true;
+  for (const vf of state.vhdxFiles) {
+    const compactRes = await window.wslCleaner.optimizeVhdx({ vhdxPath: vf.path, taskId: 'simple' });
+    if (!compactRes.ok) compactOk = false;
+  }
+  setSimpleStep('compact', compactOk ? 'done' : 'failed');
 
-  // Step 5: Restart WSL
+  // Step 7: Restart each selected distro
   setSimpleStep('restart', 'active');
-  await window.wslCleaner.runWslCommand({ command: `wsl -d ${state.distro} -- echo "WSL restarted"`, taskId: 'simple' });
+  for (const distro of state.selectedDistros) {
+    await window.wslCleaner.runWslCommand({ command: `wsl -d ${distro} -- echo "WSL restarted"`, taskId: 'simple' });
+  }
   setSimpleStep('restart', 'done');
 
-  // Measure after
-  const afterResult = await window.wslCleaner.getFileSize(vhdxPath);
-  const afterSize = afterResult.ok ? afterResult.size : 0;
-  const saved = beforeSize - afterSize;
+  // Measure total VHDX size after
+  let totalAfter = 0;
+  for (const vf of state.vhdxFiles) {
+    const res = await window.wslCleaner.getFileSize(vf.path);
+    totalAfter += res.ok ? res.size : 0;
+  }
+  const saved = totalBefore - totalAfter;
 
   // Show results
-  simpleSizeBefore.textContent = formatBytes(beforeSize);
-  simpleSizeAfter.textContent = formatBytes(afterSize);
+  simpleSizeBefore.textContent = formatBytes(totalBefore);
+  simpleSizeAfter.textContent = formatBytes(totalAfter);
   simpleSpaceSaved.textContent = saved > 0 ? formatBytes(saved) : '0 B (no change)';
   simpleResult.classList.remove('hidden');
 
-  // Update displayed size
-  simpleSize.textContent = formatBytes(afterSize);
-  vhdxSizeEl.textContent = formatBytes(afterSize);
+  // Update displayed sizes
+  updateVhdxDisplay();
 
   state.isRunning = false;
   btnSimpleGo.disabled = false;
+  distroPickerBtn.disabled = false;
 });
 
 // ── About page ───────────────────────────────────────────────────────────────
 
-btnCheckUpdates.addEventListener('click', () => {
-  window.wslCleaner.openExternal('https://github.com/dbfx/wsl-cleaner/releases');
+function setUpdateStatus(html, className) {
+  updateStatusEl.innerHTML = html;
+  updateStatusEl.className = 'update-status' + (className ? ' ' + className : '');
+  updateStatusEl.classList.remove('hidden');
+}
+
+// Listen for update events from main process
+window.wslCleaner.onUpdateStatus((data) => {
+  switch (data.status) {
+    case 'checking':
+      setUpdateStatus(
+        `<div class="update-spinner"></div> Checking for updates...`,
+        'update-checking'
+      );
+      btnCheckUpdates.disabled = true;
+      break;
+
+    case 'available':
+      setUpdateStatus(
+        `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Update v${escapeHtml(data.version)} available. Downloading...`,
+        'update-available'
+      );
+      btnCheckUpdates.disabled = true;
+      break;
+
+    case 'downloading':
+      setUpdateStatus(
+        `<div class="update-progress-wrap"><div class="update-progress-bar" style="width:${data.percent}%"></div></div> Downloading update... ${data.percent}%`,
+        'update-downloading'
+      );
+      btnCheckUpdates.disabled = true;
+      break;
+
+    case 'downloaded':
+      setUpdateStatus(
+        `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg> Update v${escapeHtml(data.version)} ready to install.`,
+        'update-downloaded'
+      );
+      btnCheckUpdates.classList.add('hidden');
+      btnInstallUpdate.classList.remove('hidden');
+      break;
+
+    case 'up-to-date':
+      setUpdateStatus(
+        `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg> You're on the latest version.`,
+        'update-uptodate'
+      );
+      btnCheckUpdates.disabled = false;
+      break;
+
+    case 'error':
+      setUpdateStatus(
+        `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Update check failed.`,
+        'update-error'
+      );
+      btnCheckUpdates.disabled = false;
+      break;
+  }
+});
+
+btnCheckUpdates.addEventListener('click', async () => {
+  btnCheckUpdates.disabled = true;
+  setUpdateStatus(
+    `<div class="update-spinner"></div> Checking for updates...`,
+    'update-checking'
+  );
+  await window.wslCleaner.checkForUpdates();
+});
+
+btnInstallUpdate.addEventListener('click', () => {
+  window.wslCleaner.installUpdate();
 });
 
 btnGitHub.addEventListener('click', () => {
@@ -1040,15 +941,12 @@ async function init() {
     return;
   }
 
-  state.distro = wslCheck.defaultDistro;
-  distroName.textContent = state.distro;
+  state.distros = wslCheck.distros;
+  state.selectedDistros = [wslCheck.defaultDistro];
   statusText.textContent = `WSL 2 Ready — ${wslCheck.distros.length} distro(s) found`;
 
-  // Detect tools
-  state.tools = await window.wslCleaner.detectTools(state.distro);
-
-  renderTasks();
-  await loadVhdxInfo();
+  renderDistroPicker();
+  await refreshDistroData();
 
   // Restore last page from localStorage
   switchPage(state.currentPage);
