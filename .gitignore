@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+
+# Environment
+.env
+.env.local
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temp files
+*.tmp
+wsl-cleaner-scan.sh
+wsl-cleaner-optimize.ps1
+wsl-cleaner-optimize.log
