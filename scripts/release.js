@@ -11,9 +11,10 @@
  *   2. Runs tests to make sure nothing is broken
  *   3. Updates version in package.json
  *   4. Updates CHANGELOG.md via conventional-changelog
- *   5. Commits the version bump
- *   6. Creates a git tag
- *   7. Optionally pushes to origin (which triggers the GitHub Actions release workflow)
+ *   5. Generates/updates translations for all locales (requires OPENAI_API_KEY in .env)
+ *   6. Commits the version bump, changelog, and locale files
+ *   7. Creates a git tag
+ *   8. Optionally pushes to origin (which triggers the GitHub Actions release workflow)
  */
 
 const { execSync } = require('child_process');
@@ -127,7 +128,7 @@ async function main() {
   console.log(`\n  Bumping ${current} → ${newVersion}\n`);
 
   // Step 1: Run tests
-  console.log('── Step 1/6: Running tests ─────────────────────────');
+  console.log('── Step 1/7: Running tests ─────────────────────────');
   try {
     run('npm test');
   } catch {
@@ -136,13 +137,13 @@ async function main() {
   }
 
   // Step 2: Update package.json version
-  console.log('\n── Step 2/6: Updating package.json ─────────────────');
+  console.log('\n── Step 2/7: Updating package.json ─────────────────');
   pkg.version = newVersion;
   writePkg(pkg);
   console.log(`  Updated package.json version to ${newVersion}`);
 
   // Step 3: Update changelog
-  console.log('\n── Step 3/6: Updating CHANGELOG.md ─────────────────');
+  console.log('\n── Step 3/7: Updating CHANGELOG.md ─────────────────');
   try {
     run('npm run changelog');
     console.log('  CHANGELOG.md updated.');
@@ -150,18 +151,27 @@ async function main() {
     console.log('  Warning: changelog generation failed (continuing anyway).');
   }
 
-  // Step 4: Commit
-  console.log('\n── Step 4/6: Committing changes ────────────────────');
-  run('git add package.json CHANGELOG.md');
+  // Step 4: Update translations
+  console.log('\n── Step 4/7: Updating translations ─────────────────');
+  try {
+    run('npm run translate');
+    console.log('  Translations updated.');
+  } catch {
+    console.log('  Warning: translation generation failed (missing OPENAI_API_KEY?). Continuing with existing locale files.');
+  }
+
+  // Step 5: Commit
+  console.log('\n── Step 5/7: Committing changes ────────────────────');
+  run('git add package.json CHANGELOG.md locales/');
   run(`git commit -m "chore: release v${newVersion}"`);
 
-  // Step 5: Tag
-  console.log('\n── Step 5/6: Creating git tag ──────────────────────');
+  // Step 6: Tag
+  console.log('\n── Step 6/7: Creating git tag ──────────────────────');
   run(`git tag v${newVersion}`);
   console.log(`  Tagged v${newVersion}`);
 
-  // Step 6: Push
-  console.log('\n── Step 6/6: Push to origin ────────────────────────');
+  // Step 7: Push
+  console.log('\n── Step 7/7: Push to origin ────────────────────────');
   const doPush = await ask('  Push commit and tag to origin? This will trigger the release build. (Y/n) ');
 
   if (doPush.toLowerCase() !== 'n') {

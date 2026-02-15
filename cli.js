@@ -517,7 +517,15 @@ async function main() {
   }
 }
 
-main().catch(err => {
-  console.error(`${c.red}error:${c.reset} ${err.message}`);
-  process.exit(1);
-});
+// Export pure helpers for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { parseArgs, stripHtml, formatBytes };
+}
+
+// Run CLI when invoked directly
+if (require.main === module) {
+  main().catch(err => {
+    console.error(`${c.red}error:${c.reset} ${err.message}`);
+    process.exit(1);
+  });
+}

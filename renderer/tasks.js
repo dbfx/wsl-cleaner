@@ -1,5 +1,14 @@
 // ── Task definitions (extracted from app.js for testability) ─────────────────
 
+const CATEGORIES = [
+  { id: 'system',       icon: '\u{1F5A5}\uFE0F' },  // 🖥️
+  { id: 'user-editor',  icon: '\u{1F464}' },          // 👤
+  { id: 'pkg-managers', icon: '\u{1F4E6}' },          // 📦
+  { id: 'frameworks',   icon: '\u{1F527}' },          // 🔧
+  { id: 'containers',   icon: '\u{1F433}' },          // 🐳
+  { id: 'aggressive',   icon: '\u26A0\uFE0F' },       // ⚠️
+];
+
 const TASKS = [
   {
     id: 'apt-update',
@@ -8,6 +17,7 @@ const TASKS = [
     command: 'if command -v dnf &>/dev/null; then dnf upgrade -y; else DEBIAN_FRONTEND=noninteractive apt-get update -y && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" || true; fi',
     asRoot: true,
     requires: null,
+    category: 'system',
     // No estimateCommand — updates packages, does not free space
   },
   {
@@ -17,6 +27,7 @@ const TASKS = [
     command: 'if command -v dnf &>/dev/null; then dnf clean all && dnf autoremove -y; else DEBIAN_FRONTEND=noninteractive apt -y autoremove; apt -y clean; fi || true',
     asRoot: true,
     requires: null,
+    category: 'system',
     estimateCommand: 'du -shc /var/cache/apt/archives /var/cache/dnf 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -26,6 +37,7 @@ const TASKS = [
     command: 'journalctl --vacuum-size=10M && journalctl --vacuum-time=2weeks',
     asRoot: true,
     requires: null,
+    category: 'system',
     estimateCommand: 'journalctl --disk-usage 2>/dev/null | grep -oE "[0-9.]+[KMGT]" | head -1',
   },
   {
@@ -35,6 +47,7 @@ const TASKS = [
     command: 'rm -rf /tmp/* /var/tmp/*',
     asRoot: true,
     requires: null,
+    category: 'system',
     estimateCommand: 'du -shc /tmp /var/tmp 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -44,6 +57,7 @@ const TASKS = [
     command: 'for d in /home/* /root; do [ -d "$d" ] && rm -rf "$d/.npm" "$d/.cache/mozilla" "$d/.cache/google-chrome" "$d/.cache/pip" "$d/.cache/pipx" "$d/.cache/composer" 2>/dev/null; done; (pip cache purge 2>/dev/null || pip3 cache purge 2>/dev/null || true); echo "User caches cleaned"',
     asRoot: true,
     requires: null,
+    category: 'user-editor',
     estimateCommand: 'du -shc /home/*/.npm /home/*/.cache/mozilla /home/*/.cache/google-chrome /home/*/.cache/pip /home/*/.cache/pipx /home/*/.cache/composer /root/.npm /root/.cache/mozilla /root/.cache/google-chrome /root/.cache/pip /root/.cache/pipx /root/.cache/composer 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -53,6 +67,7 @@ const TASKS = [
     command: 'find /var/log -type f \\( -name "*.gz" -o -name "*.old" -o -name "*.1" \\) -delete',
     asRoot: true,
     requires: null,
+    category: 'system',
     estimateCommand: 'find /var/log -type f \\( -name "*.gz" -o -name "*.old" -o -name "*.1" \\) 2>/dev/null | xargs -r du -shc 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -62,6 +77,7 @@ const TASKS = [
     command: 'truncate -s 0 /var/log/syslog 2>/dev/null; truncate -s 0 /var/log/*.log 2>/dev/null; echo "Log files truncated"',
     asRoot: true,
     requires: null,
+    category: 'system',
     estimateCommand: 'du -shc /var/log/syslog /var/log/*.log 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -71,6 +87,7 @@ const TASKS = [
     command: 'rm -rf /var/lib/apt/lists/*',
     asRoot: true,
     requires: 'apt',
+    category: 'system',
     estimateCommand: 'du -sh /var/lib/apt/lists 2>/dev/null | cut -f1',
   },
   {
@@ -80,7 +97,18 @@ const TASKS = [
     command: 'rm -rf /var/lib/snapd/cache/*',
     asRoot: true,
     requires: 'snap',
+    category: 'pkg-managers',
     estimateCommand: 'du -sh /var/lib/snapd/cache 2>/dev/null | cut -f1',
+  },
+  {
+    id: 'snap-old-revisions',
+    name: 'Remove Old Snap Revisions',
+    desc: 'Removes disabled snap revisions sitting in <code>/var/lib/snapd/snaps</code>. Can reclaim several GB.',
+    command: 'snap list --all 2>/dev/null | awk "/disabled/{print \\$1, \\$3}" | while read snapname revision; do echo "Removing $snapname revision $revision"; snap remove "$snapname" --revision="$revision" 2>/dev/null; done; echo "Old snap revisions removed"',
+    asRoot: true,
+    requires: 'snap',
+    category: 'pkg-managers',
+    // No estimateCommand — requires snap list parsing which is fragile across distros
   },
   {
     id: 'vscode-server',
@@ -89,7 +117,18 @@ const TASKS = [
     command: 'rm -rf ~/.vscode-server/extensionCache ~/.vscode-server/bin/*/log ~/.vscode-server/data/logs ~/.cursor-server/extensionCache ~/.cursor-server/bin/*/log ~/.cursor-server/data/logs ~/.windsurf-server/extensionCache ~/.windsurf-server/bin/*/log ~/.windsurf-server/data/logs',
     asRoot: false,
     requires: null,
+    category: 'user-editor',
     estimateCommand: 'du -shc /home/*/.vscode-server/extensionCache /home/*/.vscode-server/bin/*/log /home/*/.vscode-server/data/logs /home/*/.cursor-server/extensionCache /home/*/.cursor-server/bin/*/log /home/*/.cursor-server/data/logs /home/*/.windsurf-server/extensionCache /home/*/.windsurf-server/bin/*/log /home/*/.windsurf-server/data/logs 2>/dev/null | tail -1 | cut -f1',
+  },
+  {
+    id: 'vscode-old-bins',
+    name: 'Clean Old VS Code / Cursor / Windsurf Server Binaries',
+    desc: 'Removes old server binaries from <code>~/.vscode-server/bin</code>, <code>~/.cursor-server/bin</code>, and <code>~/.windsurf-server/bin</code>, keeping only the latest version. Each old version is ~200 MB.',
+    command: 'for base in ~/.vscode-server/bin ~/.cursor-server/bin ~/.windsurf-server/bin; do [ -d "$base" ] || continue; latest=$(ls -td "$base"/*/ 2>/dev/null | head -1); [ -z "$latest" ] && continue; for d in "$base"/*/; do [ "$d" = "$latest" ] && continue; echo "Removing old binary: $d"; rm -rf "$d"; done; done; echo "Old server binaries cleaned"',
+    asRoot: false,
+    requires: null,
+    category: 'user-editor',
+    estimateCommand: 'for base in /home/*/.vscode-server/bin /home/*/.cursor-server/bin /home/*/.windsurf-server/bin /root/.vscode-server/bin /root/.cursor-server/bin /root/.windsurf-server/bin; do [ -d "$base" ] || continue; latest=$(ls -td "$base"/*/ 2>/dev/null | head -1); for d in "$base"/*/; do [ "$d" = "$latest" ] && continue; du -s "$d" 2>/dev/null; done; done | awk "{s+=\\$1}END{if(s>=1048576)printf \\"%.1fG\\",s/1048576;else if(s>=1024)printf \\"%.0fM\\",s/1024;else printf \\"%dK\\",s+0}"',
   },
   {
     id: 'trash',
@@ -98,6 +137,7 @@ const TASKS = [
     command: 'rm -rf ~/.local/share/Trash/*',
     asRoot: false,
     requires: null,
+    category: 'user-editor',
     estimateCommand: 'du -shc /home/*/.local/share/Trash /root/.local/share/Trash 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -107,6 +147,7 @@ const TASKS = [
     command: 'rm -rf ~/.cache/thumbnails/*',
     asRoot: false,
     requires: null,
+    category: 'user-editor',
     estimateCommand: 'du -shc /home/*/.cache/thumbnails /root/.cache/thumbnails 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -116,6 +157,7 @@ const TASKS = [
     command: 'yarn cache clean',
     asRoot: false,
     requires: 'yarn',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.cache/yarn /root/.cache/yarn /usr/local/share/.cache/yarn 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -125,6 +167,7 @@ const TASKS = [
     command: 'go clean -modcache',
     asRoot: false,
     requires: 'go',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/go/pkg/mod /root/go/pkg/mod 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -134,6 +177,7 @@ const TASKS = [
     command: 'rm -rf ~/.cargo/registry/cache/* ~/.cargo/registry/src/*',
     asRoot: false,
     requires: null,
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.cargo/registry/cache /home/*/.cargo/registry/src /root/.cargo/registry/cache /root/.cargo/registry/src 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -143,6 +187,7 @@ const TASKS = [
     command: 'find /home /var/www -maxdepth 5 -name artisan -type f 2>/dev/null | while IFS= read -r artisan; do dir=$(dirname "$artisan"); if [ -d "$dir/storage/logs" ]; then find "$dir/storage/logs" -name "*.log*" -type f -delete 2>/dev/null && echo "Cleaned logs: $dir"; fi; if [ -d "$dir/storage/framework/cache/data" ]; then rm -rf "$dir/storage/framework/cache/data/"* 2>/dev/null && echo "Cleaned cache: $dir"; fi; if [ -d "$dir/storage/framework/views" ]; then find "$dir/storage/framework/views" -name "*.php" -type f -delete 2>/dev/null && echo "Cleaned views: $dir"; fi; done; echo "Laravel cleanup complete"',
     asRoot: true,
     requires: null,
+    category: 'frameworks',
     estimateCommand: 'find /home /var/www -maxdepth 5 -name artisan -type f 2>/dev/null | while IFS= read -r a; do d=$(dirname "$a"); du -s "$d/storage/logs" "$d/storage/framework/cache/data" "$d/storage/framework/views" 2>/dev/null; done | awk "{s+=\\$1}END{if(s>=1048576)printf \\"%.1fG\\",s/1048576;else if(s>=1024)printf \\"%.0fM\\",s/1024;else printf \\"%dK\\",s+0}"',
   },
   {
@@ -170,7 +215,38 @@ const TASKS = [
     ].join('; '),
     asRoot: true,
     requires: null,
+    category: 'frameworks',
     estimateCommand: 'find /home /var/www -maxdepth 8 -type d \\( -path "*/node_modules/.cache" -o -path "*/.next/cache" -o -path "*/.angular/cache" -o -name .svelte-kit -o -name .parcel-cache -o -name .turbo \\) 2>/dev/null | xargs -r du -shc 2>/dev/null | tail -1 | cut -f1',
+  },
+  {
+    id: 'rust-target',
+    name: 'Clean Rust Build Artifacts',
+    desc: 'Finds Rust projects under <code>/home</code> and removes their <code>target/</code> directories. Each project can have 1&ndash;10 GB in build output. Rebuilt on next <code>cargo build</code>.',
+    command: 'find /home /root -maxdepth 6 -name Cargo.toml -type f 2>/dev/null | while IFS= read -r f; do dir=$(dirname "$f")/target; if [ -d "$dir" ]; then echo "Removing: $dir"; rm -rf "$dir"; fi; done; echo "Rust build artifacts cleaned"',
+    asRoot: true,
+    requires: null,
+    category: 'frameworks',
+    estimateCommand: 'find /home /root -maxdepth 6 -name Cargo.toml -type f 2>/dev/null | while IFS= read -r f; do d=$(dirname "$f")/target; [ -d "$d" ] && du -s "$d" 2>/dev/null; done | awk "{s+=\\$1}END{if(s>=1048576)printf \\"%.1fG\\",s/1048576;else if(s>=1024)printf \\"%.0fM\\",s/1024;else printf \\"%dK\\",s+0}"',
+  },
+  {
+    id: 'android-cache',
+    name: 'Clean Android SDK &amp; Gradle Build Cache',
+    desc: 'Removes <code>~/.android/cache</code>, <code>~/.android/build-cache</code>, and Gradle project <code>build/</code> directories. Mobile devs can have 5&ndash;20 GB here.',
+    command: 'for d in /home/* /root; do [ -d "$d" ] && rm -rf "$d/.android/cache" "$d/.android/build-cache" 2>/dev/null; done; find /home /root -maxdepth 6 \\( -name "build.gradle" -o -name "build.gradle.kts" \\) -type f 2>/dev/null | while IFS= read -r f; do dir=$(dirname "$f")/build; if [ -d "$dir" ]; then echo "Removing: $dir"; rm -rf "$dir"; fi; done; echo "Android/Gradle build cache cleaned"',
+    asRoot: true,
+    requires: null,
+    category: 'frameworks',
+    estimateCommand: 'du -shc /home/*/.android/cache /home/*/.android/build-cache /root/.android/cache /root/.android/build-cache 2>/dev/null | tail -1 | cut -f1',
+  },
+  {
+    id: 'python-bytecode',
+    name: 'Remove Python Bytecode',
+    desc: 'Removes all <code>__pycache__</code> directories and <code>*.pyc</code> files under <code>/home</code>. Rebuilt automatically on next import.',
+    command: 'find /home -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; find /home -type f -name "*.pyc" -delete 2>/dev/null; echo "Python bytecode cleaned"',
+    asRoot: true,
+    requires: null,
+    category: 'frameworks',
+    estimateCommand: 'find /home -type d -name __pycache__ 2>/dev/null | xargs -r du -shc 2>/dev/null | tail -1 | cut -f1',
   },
   {
     id: 'docker-prune',
@@ -179,6 +255,7 @@ const TASKS = [
     command: 'docker image prune -f 2>/dev/null && docker network prune -f 2>/dev/null && docker builder prune -f 2>/dev/null && echo "Docker dangling artifacts cleaned"',
     asRoot: false,
     requires: 'docker',
+    category: 'containers',
     // No estimateCommand — docker system df output is complex and fragile to parse
   },
   {
@@ -188,6 +265,7 @@ const TASKS = [
     command: 'rm -rf ~/.cache/pip/*',
     asRoot: false,
     requires: null,
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.cache/pip /root/.cache/pip 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -197,6 +275,7 @@ const TASKS = [
     command: 'pnpm store prune 2>/dev/null; rm -rf ~/.local/share/pnpm/store/v3/tmp/* 2>/dev/null; echo "pnpm store pruned"',
     asRoot: false,
     requires: 'pnpm',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.local/share/pnpm/store /root/.local/share/pnpm/store 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -206,6 +285,7 @@ const TASKS = [
     command: 'composer clear-cache 2>/dev/null || rm -rf ~/.cache/composer/* ~/.composer/cache/* 2>/dev/null; echo "Composer cache cleaned"',
     asRoot: false,
     requires: 'composer',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.cache/composer /home/*/.composer/cache /root/.cache/composer /root/.composer/cache 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -215,6 +295,7 @@ const TASKS = [
     command: 'rm -rf ~/.m2/repository/*; echo "Maven cache cleaned"',
     asRoot: false,
     requires: 'mvn',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.m2/repository /root/.m2/repository 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -224,6 +305,7 @@ const TASKS = [
     command: 'rm -rf ~/.gradle/caches/* ~/.gradle/wrapper/dists/*; echo "Gradle cache cleaned"',
     asRoot: false,
     requires: 'gradle',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.gradle/caches /home/*/.gradle/wrapper/dists /root/.gradle/caches /root/.gradle/wrapper/dists 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -233,6 +315,7 @@ const TASKS = [
     command: 'conda clean --all -y 2>/dev/null || true; echo "Conda cache cleaned"',
     asRoot: false,
     requires: 'conda',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/miniconda3/pkgs /home/*/anaconda3/pkgs /home/*/.conda/pkgs /root/miniconda3/pkgs /root/anaconda3/pkgs 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -242,6 +325,7 @@ const TASKS = [
     command: 'gem cleanup 2>/dev/null; rm -rf ~/.gem/ruby/*/cache/* 2>/dev/null; echo "Gem cache cleaned"',
     asRoot: false,
     requires: 'gem',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.gem/ruby/*/cache /root/.gem/ruby/*/cache 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -251,6 +335,7 @@ const TASKS = [
     command: 'dotnet nuget locals all --clear 2>/dev/null || rm -rf ~/.nuget/packages/* ~/.local/share/NuGet/* 2>/dev/null; echo "NuGet cache cleaned"',
     asRoot: false,
     requires: 'dotnet',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.nuget/packages /home/*/.local/share/NuGet /root/.nuget/packages /root/.local/share/NuGet 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -260,6 +345,7 @@ const TASKS = [
     command: 'rm -rf ~/.cache/deno/* ~/.deno/cache/* 2>/dev/null; echo "Deno cache cleaned"',
     asRoot: false,
     requires: 'deno',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.cache/deno /home/*/.deno/cache /root/.cache/deno /root/.deno/cache 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -269,6 +355,7 @@ const TASKS = [
     command: 'rm -rf ~/.bun/install/cache/* 2>/dev/null; echo "Bun cache cleaned"',
     asRoot: false,
     requires: 'bun',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.bun/install/cache /root/.bun/install/cache 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -278,6 +365,7 @@ const TASKS = [
     command: 'rm -rf ~/.pub-cache/hosted/pub.dev/*/.cache 2>/dev/null; dart pub cache clean -f 2>/dev/null || rm -rf ~/.pub-cache/_temp/* 2>/dev/null; echo "Pub cache cleaned"',
     asRoot: false,
     requires: 'dart',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.pub-cache /root/.pub-cache 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -287,6 +375,7 @@ const TASKS = [
     command: 'brew cleanup --prune=all -s 2>/dev/null; rm -rf ~/.cache/Homebrew/* 2>/dev/null; echo "Homebrew cache cleaned"',
     asRoot: false,
     requires: 'brew',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.cache/Homebrew /root/.cache/Homebrew /home/linuxbrew/.linuxbrew/cache 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -296,6 +385,7 @@ const TASKS = [
     command: 'find /var/log/mysql /var/log/postgresql -type f 2>/dev/null -delete; rm -rf /var/lib/mysql/*.log.* 2>/dev/null; echo "Database logs cleaned"',
     asRoot: true,
     requires: null,
+    category: 'containers',
     estimateCommand: 'du -shc /var/log/mysql /var/log/postgresql /var/lib/mysql/*.log.* 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -305,7 +395,28 @@ const TASKS = [
     command: 'rm -rf ~/.kube/cache/* ~/.cache/helm/* 2>/dev/null; echo "Kubernetes caches cleaned"',
     asRoot: false,
     requires: null,
+    category: 'containers',
     estimateCommand: 'du -shc /home/*/.kube/cache /home/*/.cache/helm /root/.kube/cache /root/.cache/helm 2>/dev/null | tail -1 | cut -f1',
+  },
+  {
+    id: 'terraform-cache',
+    name: 'Clean Terraform Plugin Cache',
+    desc: 'Removes Terraform provider/plugin caches from <code>~/.terraform.d/plugin-cache</code> and project-level <code>.terraform/providers</code>. Providers can be 100&ndash;500 MB each. Re-downloaded on next <code>terraform init</code>.',
+    command: 'for d in /home/* /root; do [ -d "$d" ] && rm -rf "$d/.terraform.d/plugin-cache"/* 2>/dev/null; done; find /home -maxdepth 8 -type d -name providers -path "*/.terraform/providers" -exec rm -rf {} + 2>/dev/null; echo "Terraform cache cleaned"',
+    asRoot: true,
+    requires: 'terraform',
+    category: 'containers',
+    estimateCommand: 'du -shc /home/*/.terraform.d/plugin-cache /root/.terraform.d/plugin-cache 2>/dev/null | tail -1 | cut -f1',
+  },
+  {
+    id: 'minikube-cache',
+    name: 'Clean Minikube Cache',
+    desc: 'Removes cached ISO images, Kubernetes binaries, and container images from <code>~/.minikube/cache</code>. Can be 1&ndash;3 GB. Re-downloaded on next <code>minikube start</code>.',
+    command: 'rm -rf ~/.minikube/cache/* 2>/dev/null; echo "Minikube cache cleaned"',
+    asRoot: false,
+    requires: 'minikube',
+    category: 'containers',
+    estimateCommand: 'du -shc /home/*/.minikube/cache /root/.minikube/cache 2>/dev/null | tail -1 | cut -f1',
   },
   {
     id: 'editor-swap',
@@ -314,6 +425,7 @@ const TASKS = [
     command: 'rm -rf ~/.local/share/nvim/swap/* ~/.local/share/nvim/shada/* ~/.vim/undo/* ~/.vim/swap/* 2>/dev/null; find ~ -maxdepth 1 -name ".*.swp" -delete 2>/dev/null; echo "Editor swap/undo files cleaned"',
     asRoot: false,
     requires: null,
+    category: 'user-editor',
     estimateCommand: 'du -shc /home/*/.local/share/nvim/swap /home/*/.local/share/nvim/shada /home/*/.vim/undo /home/*/.vim/swap /root/.local/share/nvim/swap /root/.local/share/nvim/shada /root/.vim/undo /root/.vim/swap 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -323,6 +435,7 @@ const TASKS = [
     command: 'find /home -maxdepth 6 -type d -name .git 2>/dev/null | while IFS= read -r gitdir; do repo=$(dirname "$gitdir"); echo "Compacting: $repo"; git -C "$repo" reflog expire --expire=now --all 2>/dev/null; git -C "$repo" gc --prune=now --aggressive 2>/dev/null; done; echo "Git compaction complete"',
     asRoot: true,
     requires: null,
+    category: 'containers',
     // No estimateCommand — compaction savings are unpredictable
   },
   {
@@ -332,6 +445,7 @@ const TASKS = [
     command: 'rm -f ~/.zcompdump* 2>/dev/null; rm -rf ~/.oh-my-zsh/cache/* 2>/dev/null; rm -rf ~/.zsh_sessions/* 2>/dev/null; echo "Shell caches cleaned"',
     asRoot: false,
     requires: null,
+    category: 'user-editor',
     estimateCommand: 'du -shc /home/*/.oh-my-zsh/cache /home/*/.zsh_sessions /root/.oh-my-zsh/cache /root/.zsh_sessions 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -341,6 +455,7 @@ const TASKS = [
     command: 'rm -rf ~/.local/share/jupyter/runtime/* 2>/dev/null; echo "Jupyter runtime cleaned"',
     asRoot: false,
     requires: null,
+    category: 'user-editor',
     estimateCommand: 'du -shc /home/*/.local/share/jupyter/runtime /root/.local/share/jupyter/runtime 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -350,6 +465,7 @@ const TASKS = [
     command: 'ccache -C 2>/dev/null || rm -rf ~/.ccache/* 2>/dev/null; echo "ccache cleaned"',
     asRoot: false,
     requires: 'ccache',
+    category: 'pkg-managers',
     estimateCommand: 'du -shc /home/*/.ccache /root/.ccache 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -359,6 +475,7 @@ const TASKS = [
     command: 'rm -rf ~/.cache/bazel/* 2>/dev/null; echo "Bazel cache cleaned"',
     asRoot: false,
     requires: 'bazel',
+    category: 'frameworks',
     estimateCommand: 'du -shc /home/*/.cache/bazel /root/.cache/bazel 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -368,6 +485,7 @@ const TASKS = [
     command: 'rm -rf /var/crash/* /var/lib/systemd/coredump/* 2>/dev/null; echo "Core dumps cleaned"',
     asRoot: true,
     requires: null,
+    category: 'system',
     estimateCommand: 'du -shc /var/crash /var/lib/systemd/coredump 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -377,6 +495,7 @@ const TASKS = [
     command: 'dpkg -l "linux-image-*" 2>/dev/null | awk "/^ii/{print \\$2}" | xargs -r apt-get -y purge 2>/dev/null; dpkg -l "linux-headers-*" 2>/dev/null | awk "/^ii/{print \\$2}" | xargs -r apt-get -y purge 2>/dev/null; dpkg -l "linux-modules-*" 2>/dev/null | awk "/^ii/{print \\$2}" | xargs -r apt-get -y purge 2>/dev/null; echo "Old kernel packages removed"',
     asRoot: true,
     requires: 'apt',
+    category: 'system',
     estimateCommand: 'du -shc /lib/modules /usr/src/linux-headers-* 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -386,6 +505,7 @@ const TASKS = [
     command: 'rm -rf /var/cache/fontconfig/* ~/.cache/fontconfig/* 2>/dev/null; echo "Font cache cleaned"',
     asRoot: true,
     requires: null,
+    category: 'system',
     estimateCommand: 'du -shc /var/cache/fontconfig /home/*/.cache/fontconfig /root/.cache/fontconfig 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -395,6 +515,7 @@ const TASKS = [
     command: 'fstrim / 2>/dev/null || (echo "fstrim not supported, zero-filling free space..." && dd if=/dev/zero of=/zero.fill bs=1M 2>/dev/null; rm -f /zero.fill); echo "TRIM complete"',
     asRoot: true,
     requires: null,
+    category: 'system',
     // No estimateCommand — marks free blocks, does not delete anything
   },
   {
@@ -405,6 +526,7 @@ const TASKS = [
     asRoot: false,
     requires: null,
     aggressive: true,
+    category: 'aggressive',
     estimateCommand: 'du -shc /home/*/.cache /root/.cache 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -415,6 +537,7 @@ const TASKS = [
     asRoot: true,
     requires: null,
     aggressive: true,
+    category: 'aggressive',
     estimateCommand: 'du -shc /usr/share/man /usr/share/doc /usr/share/info 2>/dev/null | tail -1 | cut -f1',
   },
   {
@@ -425,11 +548,12 @@ const TASKS = [
     asRoot: true,
     requires: null,
     aggressive: true,
+    category: 'aggressive',
     estimateCommand: 'find /usr/share/locale -maxdepth 1 -mindepth 1 -type d ! -name "en*" 2>/dev/null | xargs -r du -shc 2>/dev/null | tail -1 | cut -f1',
   },
 ];
 
 // Export for Node.js/test environments; in browser these are just globals
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { TASKS };
+  module.exports = { TASKS, CATEGORIES };
 }

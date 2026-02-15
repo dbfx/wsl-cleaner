@@ -33,8 +33,8 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 960,
-    height: 750,
+    width: 1440,
+    height: 900,
     minWidth: 800,
     minHeight: 600,
     frame: false,
@@ -226,6 +226,17 @@ ipcMain.handle('clear-cleanup-history', () => {
 
 ipcMain.handle('estimate-task-sizes', async (_event, opts) => {
   return wslOps.estimateTaskSizes(opts);
+});
+
+// ── Disk usage scanning (treemap) ────────────────────────────────────────────
+
+ipcMain.handle('scan-disk-usage', async (_event, { distro, targetPath, maxDepth }) => {
+  return wslOps.scanDiskUsage({ distro, targetPath, maxDepth });
+});
+
+ipcMain.handle('cancel-disk-scan', async () => {
+  wslOps.cancelDiskScan();
+  return { ok: true };
 });
 
 // ── Task preferences ─────────────────────────────────────────────────────────

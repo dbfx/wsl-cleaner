@@ -13,22 +13,42 @@ Thanks for your interest in contributing to WSL Cleaner! This guide will help yo
 
 ```
 wsl-cleaner/
-├── main.js            # Electron main process (IPC handlers, WSL/VHDX operations)
-├── preload.js         # Context bridge exposing safe APIs to the renderer
+├── main.js              # Electron main process — IPC handlers, auto-updater
+├── preload.js           # contextBridge exposing window.wslCleaner API
+├── cli.js               # Standalone CLI (node cli.js --help)
+├── lib/
+│   ├── wsl-ops.js       # WSL commands, VHDX discovery, stale scanning
+│   ├── utils.js         # Pure helpers — parseWslOutput, friendlyError, etc.
+│   ├── stats-db.js      # Cleanup history persistence (JSON)
+│   └── preferences.js   # Task toggle & locale preference persistence
 ├── renderer/
-│   ├── index.html     # App shell and UI markup
-│   ├── app.js         # Renderer logic (UI state, task orchestration)
-│   └── styles.css     # All styling
-├── assets/            # App icons
-├── package.json
-└── CONTRIBUTING.md    # You are here
+│   ├── index.html       # App shell with data-i18n attributes
+│   ├── app.js           # UI logic, state management, task orchestration
+│   ├── tasks.js         # TASKS array (40+ cleanup task definitions)
+│   ├── treemap.js       # Squarified treemap algorithm & DOM renderer
+│   ├── i18n.js          # Lightweight i18n runtime (t, tp, tError, applyI18n)
+│   ├── utils.js         # formatBytes, escapeHtml, estimateTotalSize
+│   └── styles.css       # Dark-mode stylesheet
+├── locales/             # i18n locale files (en, fr, de, es, zh, hi, pt)
+├── scripts/             # translate.js, release.js
+├── tests/               # Vitest test suite
+├── assets/              # App icons (icon.png, icon.ico)
+└── package.json
 ```
 
 | Layer | File(s) | Responsibility |
 |-------|---------|----------------|
-| Main process | `main.js` | Window lifecycle, IPC handlers, WSL/PowerShell commands, VHDX discovery & optimization, auto-updater |
+| Main process | `main.js` | Window lifecycle, IPC handlers, auto-updater events |
+| Libraries | `lib/wsl-ops.js` | WSL command execution, VHDX discovery & optimization, stale scanning |
+| Libraries | `lib/utils.js` | Pure utility functions — output parsing, error mapping |
+| Libraries | `lib/stats-db.js`, `lib/preferences.js` | JSON-backed persistence for history and preferences |
 | Preload | `preload.js` | `contextBridge` that exposes `window.wslCleaner` to the renderer |
-| Renderer | `renderer/*` | UI rendering, user interaction, calling preload APIs |
+| Renderer | `renderer/app.js` | All UI logic — navigation, task cards, cleanup execution, charts |
+| Renderer | `renderer/tasks.js` | `TASKS` array defining all 40+ cleanup tasks |
+| Renderer | `renderer/treemap.js` | Squarified treemap layout algorithm and DOM-based renderer |
+| Renderer | `renderer/i18n.js` | i18n runtime — `t()`, `tp()`, `tError()`, `applyI18n()` |
+| Renderer | `renderer/utils.js` | `formatBytes`, `escapeHtml`, `estimateTotalSize` |
+| CLI | `cli.js` | Headless CLI for scripting (`wsl-cleaner --clean -d Ubuntu`) |
 
 ## Getting Started
 
@@ -112,13 +132,40 @@ npm run build
 
 This uses `electron-builder` to produce an NSIS installer in the `dist/` folder. You generally don't need to build installers during development — `npm start` is sufficient.
 
+## Running Tests
+
+```bash
+npm test          # Run all tests once
+npm run test:watch  # Watch mode
+```
+
+Tests cover `lib/utils.js`, `lib/stats-db.js`, `lib/preferences.js`, `renderer/utils.js`, `renderer/i18n.js`, `renderer/tasks.js`, and `cli.js`.
+
 ## Adding a New Cleanup Task
 
 Most contributions will be new cleanup tasks. Here's the typical flow:
 
-1. **Main process** — add a tool detection entry in the `checks` array inside the `detect-tools` handler (if the task depends on a tool being installed). Then add or reuse a `run-cleanup` command.
-2. **Renderer** — add a UI card/section in `index.html`, wire up the button in `app.js` to call `window.wslCleaner.runCleanup(...)` with the appropriate command.
-3. **Test** — run the task against a real WSL 2 distro and verify output streams correctly.
+1. **Task definition** — add a task object to the `TASKS` array in `renderer/tasks.js`:
+   ```js
+   {
+     id: 'my-task',
+     name: 'My Task Name',           // English fallback
+     desc: 'Description with <code>paths</code>.',
+     command: 'bash command here',
+     asRoot: true,                    // run as root?
+     requires: 'toolname',           // or null if always available
+     estimateCommand: 'du -sh ...',  // optional size estimation
+     aggressive: false,              // true = off by default, shows warning
+   }
+   ```
+2. **Tool detection** — if the task depends on a tool not already in the `TOOL_CHECKS` array in `lib/wsl-ops.js`, add a `{ name: 'toolname', cmd: 'which toolname' }` entry.
+3. **i18n** — add keys to `locales/en.json`:
+   ```json
+   "task.my-task.name": "My Task Name",
+   "task.my-task.desc": "Description with <code>paths</code>."
+   ```
+   Then run `npm run translate` to generate translations for all languages.
+4. **Test** — run `npm test` to verify task array integrity, then run the app with `npm start` and test the task against a real WSL 2 distro.
 
 ## Reporting Issues
 
@@ -129,6 +176,7 @@ Most contributions will be new cleanup tasks. Here's the typical flow:
 ## Pull Request Checklist
 
 - [ ] Branch is based on latest `main`
+- [ ] `npm test` passes
 - [ ] `npm start` runs without errors
 - [ ] Tested with at least one WSL 2 distro
 - [ ] No new `nodeIntegration` or CSP weakening

@@ -26,6 +26,10 @@ contextBridge.exposeInMainWorld('wslCleaner', {
   // Size estimation
   estimateTaskSizes: (opts) => ipcRenderer.invoke('estimate-task-sizes', opts),
 
+  // Disk usage scanning (treemap)
+  scanDiskUsage: (opts) => ipcRenderer.invoke('scan-disk-usage', opts),
+  cancelDiskScan: () => ipcRenderer.invoke('cancel-disk-scan'),
+
   // App info & external URLs
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   openExternal: (url) => ipcRenderer.invoke('open-external-url', url),

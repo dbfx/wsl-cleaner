@@ -21,7 +21,7 @@ Target audience: developers running WSL 2 with large virtual disk images who wan
 ```
 Electron Main Process (Node.js)
   ├── main.js              # Window lifecycle, IPC handlers, auto-updater
-  ├── lib/wsl-ops.js       # WSL command execution, VHDX discovery, stale scanning
+  ├── lib/wsl-ops.js       # WSL command execution, VHDX discovery, stale scanning, disk usage scanning
   ├── lib/utils.js         # parseWslOutput, friendlyError, exitCodeHint, STALE_DIR_NAMES
   ├── lib/stats-db.js      # Cleanup history persistence (JSON file)
   └── lib/preferences.js   # Task toggle + locale preference persistence
@@ -34,6 +34,7 @@ Renderer Process (Browser)
   ├── renderer/i18n.js     # Lightweight i18n module (t, tp, tError, applyI18n, setLocale)
   ├── renderer/utils.js    # formatBytes, escapeHtml, estimateTotalSize, exitCodeHint
   ├── renderer/tasks.js    # TASKS array (40+ cleanup task definitions)
+  ├── renderer/treemap.js  # Squarified treemap layout algorithm & DOM renderer
   ├── renderer/app.js      # All UI logic, state management, task orchestration
   └── renderer/styles.css  # All styling
 
@@ -46,10 +47,17 @@ Scripts
   ├── scripts/translate.js  # OpenAI-powered translation generator
   └── scripts/release.js    # Version bump helper
 
+CLI
+  └── cli.js                  # Standalone CLI (headless, no Electron dependency)
+
 Tests
-  ├── tests/main.test.js      # Tests for lib/utils.js functions
-  ├── tests/renderer.test.js  # Tests for renderer/utils.js functions
-  └── tests/tasks.test.js     # Tests for task definitions
+  ├── tests/main.test.js         # Tests for lib/utils.js functions
+  ├── tests/stats-db.test.js     # Tests for lib/stats-db.js persistence
+  ├── tests/preferences.test.js  # Tests for lib/preferences.js persistence
+  ├── tests/renderer.test.js     # Tests for renderer/utils.js functions
+  ├── tests/tasks.test.js        # Tests for task definitions
+  ├── tests/cli.test.js          # Tests for CLI parseArgs, stripHtml, formatBytes
+  └── tests/i18n.test.js         # Tests for renderer/i18n.js (t, tp, tError)
 ```
 
 ### IPC Pattern
@@ -70,7 +78,7 @@ All communication between main and renderer uses Electron's `ipcMain.handle` / `
 |------|---------|
 | `main.js` | Electron app lifecycle, all IPC handlers, auto-updater events, locale data serving |
 | `preload.js` | Exposes `window.wslCleaner` API (WSL ops, preferences, locale, updates) |
-| `lib/wsl-ops.js` | `checkWsl`, `detectTools`, `runCleanupTask`, `findVhdx`, `optimizeVhdx`, `scanStaleDirs`, `deleteStaleDirs`, `estimateTaskSizes` |
+| `lib/wsl-ops.js` | `checkWsl`, `detectTools`, `runCleanupTask`, `findVhdx`, `optimizeVhdx`, `scanStaleDirs`, `deleteStaleDirs`, `estimateTaskSizes`, `scanDiskUsage`, `cancelDiskScan` |
 | `lib/utils.js` | Pure utility functions: `filterNoise`, `parseWslOutput`, `friendlyError`, `exitCodeHint`, `isValidExternalUrl`, `STALE_DIR_NAMES` |
 | `lib/stats-db.js` | Read/write cleanup history to a JSON file in userData |
 | `lib/preferences.js` | Read/write task toggles and locale preference to JSON files in userData |
@@ -78,8 +86,10 @@ All communication between main and renderer uses Electron's `ipcMain.handle` / `
 | `renderer/i18n.js` | i18n runtime: `t(key, params)`, `tp(key, count, params)`, `tError(msg)`, `applyI18n()`, `loadLocale(code)`, `setLocale(code)` |
 | `renderer/utils.js` | `formatBytes`, `escapeHtml`, `estimateTotalSize`, `exitCodeHint` (returns i18n keys) |
 | `renderer/tasks.js` | `TASKS` array with 40+ entries. Each has `id`, `name`, `desc`, `command`, `asRoot`, `requires`, optional `estimateCommand`, optional `aggressive` |
-| `renderer/app.js` | All UI logic: navigation, distro picker, task card rendering, cleanup execution, stale scanning, disk compaction, stats/charts, update checking, language selector |
+| `renderer/treemap.js` | Squarified treemap layout algorithm and DOM-based renderer. Exposes `window.Treemap` with `buildTree`, `findNode`, `squarify`, `renderTreemap` |
+| `renderer/app.js` | All UI logic: navigation, distro picker, task card rendering, cleanup execution, stale scanning, disk compaction, disk map treemap, stats/charts, update checking, language selector |
 | `renderer/styles.css` | Full dark-mode stylesheet, custom properties for colors |
+| `cli.js` | Standalone CLI for headless/scripted usage (`wsl-cleaner --clean -d Ubuntu`). Exports `parseArgs`, `stripHtml`, `formatBytes` for testing |
 
 ## Localization (i18n)
 
@@ -188,7 +198,7 @@ npm test           # Run all tests once
 npm run test:watch # Watch mode
 ```
 
-Tests cover `lib/utils.js` (parsing, error mapping, exit codes), `renderer/utils.js` (formatBytes, escapeHtml, estimateTotalSize), and `renderer/tasks.js` (task array validation).
+Tests cover `lib/utils.js` (parsing, error mapping, exit codes), `lib/stats-db.js` (history persistence), `lib/preferences.js` (task prefs and locale), `renderer/utils.js` (formatBytes, escapeHtml, estimateTotalSize), `renderer/tasks.js` (task array validation), `renderer/i18n.js` (t, tp, tError, fallback chain), and `cli.js` (parseArgs, stripHtml, formatBytes).
 
 ## Building
 
@@ -207,3 +217,13 @@ The `build.files` array in `package.json` includes `locales/**/*` to ensure all 
 - **Section comments** in large files: `// ── Section Name ──────...`
 - **Commit messages:** conventional style (`feat:`, `fix:`, `docs:`, `refactor:`)
 - **Security:** never weaken CSP, nodeIntegration, or contextIsolation
+
+## Keeping Documentation in Sync
+
+When making structural changes (adding/removing/renaming files, adding new test files, changing the architecture, adding new cleanup tasks, or modifying how tasks are defined), update **all** of the following:
+
+1. **`AGENTS.md`** — Architecture diagram, File Responsibilities table, Tests listing
+2. **`README.md`** — Project Structure section
+3. **`CONTRIBUTING.md`** — Project Structure tree, layer/responsibility table, "Adding a New Cleanup Task" instructions, "Running Tests" section
+
+Keep all three in sync so they reflect the same structure and workflow.

@@ -11,11 +11,16 @@ let state = {
   tools: {},              // merged tool availability across selected distros
   vhdxFiles: [],          // merged VHDX list across selected distros
   taskEnabled: {},
+  taskSearch: '',          // search filter for task cards
+  
   staleEnabled: true,     // whether stale directory cleanup is enabled
   staleDays: 30,          // stale directory age threshold in days
   compactEnabled: true,   // whether disk compaction runs after cleaning
   isRunning: false,
   currentPage: localStorage.getItem('wsl-cleaner-page') || 'cleaner',
+  diskmapTree: null,       // parsed tree structure from disk scan
+  diskmapPath: '/',        // current drill-down path
+  diskmapScanning: false,  // whether a scan is in progress
 };
 
 // Migrate old localStorage page values to new names
@@ -57,6 +62,7 @@ const distroDropdown = $('#distro-dropdown');
 
 // Settings page
 const taskCardsEl = $('#task-cards');
+const taskSearchInput = $('#task-search');
 const vhdxPathEl = $('#vhdx-path');
 const vhdxSizeEl = $('#vhdx-size');
 const compactEnabledCb = $('#compact-enabled-cb');
@@ -88,6 +94,17 @@ const btnCheckUpdates = $('#btn-check-updates');
 const btnInstallUpdate = $('#btn-install-update');
 const btnGitHub = $('#btn-github');
 const updateStatusEl = $('#update-status');
+
+// Disk Map page
+const diskmapDistroSelect = $('#diskmap-distro');
+const diskmapDepthSelect = $('#diskmap-depth');
+const btnDiskmapScan = $('#btn-diskmap-scan');
+const btnDiskmapCancel = $('#btn-diskmap-cancel');
+const diskmapBreadcrumb = $('#diskmap-breadcrumb');
+const diskmapStatus = $('#diskmap-status');
+const diskmapTreemapEl = $('#diskmap-treemap');
+const diskmapEmpty = $('#diskmap-empty');
+const diskmapScanning = $('#diskmap-scanning');
 
 // ── Window controls ──────────────────────────────────────────────────────────
 
@@ -146,6 +163,12 @@ function switchPage(pageName) {
 
   // Refresh stats when navigating to the stats page
   if (pageName === 'stats') renderStatsPage();
+
+  // Run background size estimation when navigating to the settings page
+  if (pageName === 'settings') refreshSettingsEstimates();
+
+  // Render disk map when navigating to it
+  if (pageName === 'diskmap') renderDiskMap();
 }
 
 // Wire sidebar clicks
@@ -263,6 +286,9 @@ async function refreshDistroData() {
   // Show the simple estimate button now that distros are loaded
   simpleEstimate.classList.remove('hidden');
   simpleEstimateResult.classList.add('hidden');
+
+  // Re-run background size estimation if currently on the Settings page
+  if (state.currentPage === 'settings') refreshSettingsEstimates();
 }
 
 function updateVhdxDisplay() {
@@ -288,65 +314,217 @@ function updateVhdxDisplay() {
 
 // ── Build task cards (Settings) ──────────────────────────────────────────────
 
-function renderTasks() {
-  taskCardsEl.innerHTML = '';
-  for (const task of TASKS) {
+// Persist collapse state per category in localStorage
+const CAT_STATE_KEY = 'wsl-cleaner-cat-state';
+
+function getCatCollapseState() {
+  try {
+    return JSON.parse(localStorage.getItem(CAT_STATE_KEY)) || {};
+  } catch { return {}; }
+}
+
+function setCatCollapseState(catId, collapsed) {
+  const s = getCatCollapseState();
+  s[catId] = collapsed;
+  localStorage.setItem(CAT_STATE_KEY, JSON.stringify(s));
+}
+
+/**
+ * Update the enabled/total count badge on a category header.
+ * Called after a task toggle changes so the badge stays in sync
+ * without re-rendering the entire task list.
+ */
+function updateCatCount(catId) {
+  const catTasks = TASKS.filter(task => task.category === catId);
+  const enabledCount = catTasks.filter(task => {
     const available = !task.requires || state.tools[task.requires];
-    const card = document.createElement('div');
-    card.className = `task-card fade-in${available ? '' : ' unavailable'}`;
-    card.dataset.id = task.id;
-
-    card.innerHTML = `
-      <label class="toggle" onclick="event.stopPropagation()">
-        <input type="checkbox" data-task="${task.id}" ${state.taskEnabled[task.id] && available ? 'checked' : ''} ${!available ? 'disabled' : ''}>
-        <span class="toggle-slider"></span>
-      </label>
-      <div class="task-info">
-        <div class="task-name">
-          ${t('task.' + task.id + '.name')}
-          ${!available ? `<span class="chip-unavailable">${t('task.notFound', { tool: task.requires })}</span>` : ''}
-          ${task.aggressive ? `<span class="chip-aggressive">${t('task.aggressive')}</span>` : ''}
-        </div>
-        <div class="task-desc">${t('task.' + task.id + '.desc')}</div>
-      </div>
-      <span class="task-size-badge hidden" data-size-task="${task.id}"></span>
-      <div class="task-status-slot"></div>
-    `;
-
-    card.addEventListener('click', () => {
-      if (!available || state.isRunning) return;
-      const cb = card.querySelector('input[type="checkbox"]');
-      cb.checked = !cb.checked;
-      state.taskEnabled[task.id] = cb.checked;
-      saveTaskPreferences();
-    });
-
-    const cb = card.querySelector('input[type="checkbox"]');
-    cb.addEventListener('change', (e) => {
-      state.taskEnabled[task.id] = e.target.checked;
-      saveTaskPreferences();
-    });
-
-    taskCardsEl.appendChild(card);
+    return available && state.taskEnabled[task.id];
+  }).length;
+  // Find the category header in the DOM and update its count badge
+  const headers = document.querySelectorAll('.category-header');
+  for (const header of headers) {
+    const nameEl = header.querySelector('.cat-name');
+    if (nameEl && nameEl.textContent === t('category.' + catId + '.name')) {
+      const countEl = header.querySelector('.cat-count');
+      if (countEl) countEl.textContent = `${enabledCount}/${catTasks.length}`;
+      break;
+    }
   }
 }
+
+function buildTaskCard(task) {
+  const available = !task.requires || state.tools[task.requires];
+  const card = document.createElement('div');
+  card.className = `task-card fade-in${available ? '' : ' unavailable'}`;
+  card.dataset.id = task.id;
+
+  card.innerHTML = `
+    <label class="toggle" onclick="event.stopPropagation()">
+      <input type="checkbox" data-task="${task.id}" ${state.taskEnabled[task.id] && available ? 'checked' : ''} ${!available ? 'disabled' : ''}>
+      <span class="toggle-slider"></span>
+    </label>
+    <div class="task-info">
+      <div class="task-name">
+        ${t('task.' + task.id + '.name')}
+        ${!available ? `<span class="chip-unavailable">${t('task.notFound', { tool: task.requires })}</span>` : ''}
+        ${task.aggressive ? `<span class="chip-aggressive">${t('task.aggressive')}</span>` : ''}
+      </div>
+      <div class="task-desc">${t('task.' + task.id + '.desc')}</div>
+    </div>
+    <span class="task-size-badge hidden" data-size-task="${task.id}"></span>
+    <div class="task-status-slot"></div>
+  `;
+
+  card.addEventListener('click', () => {
+    if (!available || state.isRunning) return;
+    const cb = card.querySelector('input[type="checkbox"]');
+    cb.checked = !cb.checked;
+    state.taskEnabled[task.id] = cb.checked;
+    saveTaskPreferences();
+    updateCatCount(task.category);
+  });
+
+  const cb = card.querySelector('input[type="checkbox"]');
+  cb.addEventListener('change', (e) => {
+    state.taskEnabled[task.id] = e.target.checked;
+    saveTaskPreferences();
+    updateCatCount(task.category);
+  });
+
+  return card;
+}
+
+function renderTasks() {
+  taskCardsEl.innerHTML = '';
+
+  const query = state.taskSearch.toLowerCase().trim();
+
+  // Filter tasks by search query
+  const filtered = TASKS.filter(task => {
+    // Search filter — match against localized name and description
+    if (query) {
+      const name = t('task.' + task.id + '.name').toLowerCase();
+      const desc = t('task.' + task.id + '.desc').toLowerCase();
+      if (!name.includes(query) && !desc.includes(query) && !task.id.includes(query)) return false;
+    }
+    return true;
+  });
+
+  // Group by category
+  const groups = new Map();
+  for (const cat of CATEGORIES) {
+    const catTasks = filtered.filter(task => task.category === cat.id);
+    if (catTasks.length > 0) {
+      groups.set(cat.id, catTasks);
+    }
+  }
+
+  // No results
+  if (groups.size === 0) {
+    const noResults = document.createElement('div');
+    noResults.className = 'task-no-results';
+    noResults.innerHTML = `
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <p>${t('settings.noResults')}</p>
+    `;
+    taskCardsEl.appendChild(noResults);
+    return;
+  }
+
+  const collapseState = getCatCollapseState();
+  // If searching, auto-expand all groups
+  const isSearching = query.length > 0;
+
+  for (const [catId, catTasks] of groups) {
+    const catDef = CATEGORIES.find(c => c.id === catId);
+    if (!catDef) continue;
+
+    const collapsed = isSearching ? false : (collapseState[catId] !== false);
+
+    // Category group container
+    const group = document.createElement('div');
+    group.className = 'category-group';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'category-header' + (collapsed ? ' collapsed' : '');
+    // Count how many tasks in this category are enabled (and available)
+    const enabledCount = catTasks.filter(task => {
+      const available = !task.requires || state.tools[task.requires];
+      return available && state.taskEnabled[task.id];
+    }).length;
+
+    header.innerHTML = `
+      <span class="cat-icon">${catDef.icon}</span>
+      <span class="cat-name">${t('category.' + catId + '.name')}</span>
+      <span class="cat-count">${enabledCount}/${catTasks.length}</span>
+      <svg class="cat-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6,9 12,15 18,9"/>
+      </svg>
+    `;
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'category-body' + (collapsed ? ' collapsed' : '');
+
+    for (const task of catTasks) {
+      body.appendChild(buildTaskCard(task));
+    }
+
+    // Toggle collapse on header click
+    header.addEventListener('click', () => {
+      const isCollapsed = header.classList.toggle('collapsed');
+      body.classList.toggle('collapsed', isCollapsed);
+      setCatCollapseState(catId, isCollapsed);
+    });
+
+    group.appendChild(header);
+    group.appendChild(body);
+    taskCardsEl.appendChild(group);
+  }
+}
+
+// ── Task search wiring ───────────────────────────────────────────────────────
+
+let _searchDebounce = null;
+taskSearchInput.addEventListener('input', () => {
+  clearTimeout(_searchDebounce);
+  _searchDebounce = setTimeout(() => {
+    state.taskSearch = taskSearchInput.value;
+    renderTasks();
+  }, 150);
+});
+
+taskSearchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    taskSearchInput.value = '';
+    state.taskSearch = '';
+    renderTasks();
+    taskSearchInput.blur();
+  }
+});
 
 // ── Size estimation ──────────────────────────────────────────────────────
 
 /**
- * Run size estimates for all enabled tasks across all selected distros.
- * Updates task card badges and the summary total.
+ * Run size estimates for tasks across all selected distros.
+ * @param {Object} [opts]
+ * @param {boolean} [opts.allTasks=false] When true, estimate ALL tasks with
+ *   an estimateCommand (not just enabled ones). Used by the Settings page so
+ *   users can see sizes before toggling tasks on.
  * @returns {Promise<Object<string, string>>} merged size map
  */
-async function runEstimates() {
-  // Gather tasks that have estimate commands and are enabled + available
+async function runEstimates({ allTasks = false } = {}) {
+  // Gather tasks that have estimate commands and are available
   const mergedSizes = {};
 
   for (const distro of state.selectedDistros) {
     const distroTools = state.toolsByDistro[distro] || {};
     const estimatable = TASKS.filter(t => {
       const available = !t.requires || distroTools[t.requires];
-      return available && t.estimateCommand && state.taskEnabled[t.id];
+      return available && t.estimateCommand && (allTasks || state.taskEnabled[t.id]);
     }).map(t => ({ taskId: t.id, estimateCommand: t.estimateCommand }));
 
     if (estimatable.length === 0) continue;
@@ -388,7 +566,61 @@ function clearEstimates() {
   document.querySelectorAll('.task-size-badge').forEach(b => {
     b.textContent = '';
     b.classList.add('hidden');
+    b.classList.remove('loading');
   });
+}
+
+/**
+ * Populate task card size badges from a { taskId: sizeStr } map.
+ */
+function applyEstimateBadges(sizes) {
+  for (const [taskId, sizeStr] of Object.entries(sizes)) {
+    const badge = document.querySelector(`.task-size-badge[data-size-task="${taskId}"]`);
+    if (badge && sizeStr) {
+      badge.textContent = '~' + sizeStr;
+      badge.classList.remove('hidden', 'loading');
+    }
+  }
+}
+
+// ── Background size estimation for Settings page ─────────────────────────
+
+/** Counter to detect stale estimation runs (e.g. user switched distros mid-flight). */
+let _estimateGeneration = 0;
+
+/**
+ * Kick off background size estimation and populate badges on task cards.
+ * Called when navigating to the Settings page or after distro changes.
+ * Fire-and-forget — errors are silenced so it never disrupts the UI.
+ */
+async function refreshSettingsEstimates() {
+  // Guard: nothing to estimate if no distros are selected or a cleanup is running
+  if (state.isRunning || state.selectedDistros.length === 0) return;
+
+  const gen = ++_estimateGeneration;
+
+  // Show loading shimmer on all estimatable task badges
+  clearEstimates();
+  for (const task of TASKS) {
+    if (!task.estimateCommand) continue;
+    const badge = document.querySelector(`.task-size-badge[data-size-task="${task.id}"]`);
+    if (badge) {
+      badge.textContent = t('settings.estimating');
+      badge.classList.remove('hidden');
+      badge.classList.add('loading');
+    }
+  }
+
+  try {
+    const sizes = await runEstimates({ allTasks: true });
+    // Only apply if this is still the latest request
+    if (gen !== _estimateGeneration) return;
+    clearEstimates();
+    applyEstimateBadges(sizes);
+  } catch {
+    // Best-effort — hide loading badges on failure
+    if (gen === _estimateGeneration) clearEstimates();
+  }
 }
 
 // ── Estimate Sizes button (Cleaner) ──────────────────────────────────────
@@ -745,6 +977,217 @@ btnSimpleGo.addEventListener('click', async () => {
   btnSimpleGo.classList.remove('hidden');
   simpleEstimate.classList.remove('hidden');
   distroPickerBtn.disabled = false;
+});
+
+// ── Disk Map page ────────────────────────────────────────────────────────────
+
+/**
+ * Populate the disk map distro selector from current state.
+ */
+function populateDiskmapDistros() {
+  diskmapDistroSelect.innerHTML = '';
+  for (const d of state.distros) {
+    const opt = document.createElement('option');
+    opt.value = d.name;
+    opt.textContent = d.name;
+    if (state.selectedDistros.includes(d.name)) opt.selected = true;
+    diskmapDistroSelect.appendChild(opt);
+  }
+}
+
+/**
+ * Render the Disk Map page: show cached treemap or empty state.
+ */
+function renderDiskMap() {
+  populateDiskmapDistros();
+
+  if (state.diskmapScanning) {
+    diskmapEmpty.classList.add('hidden');
+    diskmapScanning.classList.remove('hidden');
+    diskmapTreemapEl.classList.add('hidden');
+    return;
+  }
+
+  if (state.diskmapTree) {
+    diskmapEmpty.classList.add('hidden');
+    diskmapScanning.classList.add('hidden');
+    diskmapTreemapEl.classList.remove('hidden');
+    diskmapBreadcrumb.classList.remove('hidden');
+    renderDiskmapBreadcrumbs();
+    renderDiskmapTreemap();
+  } else {
+    diskmapEmpty.classList.remove('hidden');
+    diskmapScanning.classList.add('hidden');
+    diskmapTreemapEl.classList.add('hidden');
+    diskmapBreadcrumb.classList.add('hidden');
+    diskmapStatus.classList.add('hidden');
+  }
+}
+
+/**
+ * Build and render the treemap for the current drill-down path.
+ */
+function renderDiskmapTreemap() {
+  const node = Treemap.findNode(state.diskmapTree, state.diskmapPath);
+  if (!node) {
+    // If drill-down path is invalid, reset to root
+    state.diskmapPath = state.diskmapTree.path;
+    renderDiskmapBreadcrumbs();
+    Treemap.renderTreemap(diskmapTreemapEl, state.diskmapTree, {
+      onDrillDown: diskmapDrillDown,
+      formatSize: formatBytes,
+    });
+    return;
+  }
+
+  // Update status bar with total size
+  diskmapStatus.classList.remove('hidden');
+  diskmapStatus.textContent = t('diskmap.totalSize', { size: formatBytes(node.size) });
+
+  Treemap.renderTreemap(diskmapTreemapEl, node, {
+    onDrillDown: diskmapDrillDown,
+    formatSize: formatBytes,
+  });
+}
+
+/**
+ * Handle drill-down: navigate into a directory in the treemap.
+ */
+function diskmapDrillDown(path) {
+  const node = Treemap.findNode(state.diskmapTree, path);
+  if (!node || node.children.length === 0) return;
+  state.diskmapPath = path;
+  renderDiskmapBreadcrumbs();
+  renderDiskmapTreemap();
+}
+
+/**
+ * Render clickable breadcrumb trail for the current drill-down path.
+ */
+function renderDiskmapBreadcrumbs() {
+  diskmapBreadcrumb.innerHTML = '';
+
+  const rootPath = state.diskmapTree ? state.diskmapTree.path : '/';
+  const segments = [];
+
+  // Always start with root
+  segments.push({ label: t('diskmap.root'), path: rootPath });
+
+  if (state.diskmapPath !== rootPath) {
+    // Build intermediate segments
+    const relativePart = state.diskmapPath.slice(rootPath.length);
+    const parts = relativePart.split('/').filter(Boolean);
+    let accumPath = rootPath;
+    for (const part of parts) {
+      accumPath = accumPath === '/' ? '/' + part : accumPath + '/' + part;
+      segments.push({ label: part, path: accumPath });
+    }
+  }
+
+  for (let i = 0; i < segments.length; i++) {
+    if (i > 0) {
+      const sep = document.createElement('span');
+      sep.className = 'diskmap-breadcrumb-sep';
+      sep.textContent = '\u203A'; // ›
+      diskmapBreadcrumb.appendChild(sep);
+    }
+
+    const crumb = document.createElement('button');
+    crumb.className = 'diskmap-breadcrumb-item';
+    crumb.textContent = segments[i].label;
+    if (i === segments.length - 1) {
+      crumb.classList.add('active');
+    } else {
+      const targetPath = segments[i].path;
+      crumb.addEventListener('click', () => {
+        state.diskmapPath = targetPath;
+        renderDiskmapBreadcrumbs();
+        renderDiskmapTreemap();
+      });
+    }
+    diskmapBreadcrumb.appendChild(crumb);
+  }
+}
+
+/**
+ * Start a disk usage scan for the selected distro.
+ */
+async function startDiskScan() {
+  const distro = diskmapDistroSelect.value;
+  if (!distro) return;
+
+  const depth = parseInt(diskmapDepthSelect.value, 10) || 3;
+
+  state.diskmapScanning = true;
+  state.diskmapTree = null;
+  state.diskmapPath = '/';
+
+  btnDiskmapScan.classList.add('hidden');
+  btnDiskmapCancel.classList.remove('hidden');
+  diskmapEmpty.classList.add('hidden');
+  diskmapTreemapEl.classList.add('hidden');
+  diskmapBreadcrumb.classList.add('hidden');
+  diskmapStatus.classList.add('hidden');
+  diskmapScanning.classList.remove('hidden');
+
+  try {
+    const result = await window.wslCleaner.scanDiskUsage({ distro, targetPath: '/', maxDepth: depth });
+
+    if (!state.diskmapScanning) return; // cancelled
+
+    if (result.ok && result.data && result.data.length > 0) {
+      state.diskmapTree = Treemap.buildTree(result.data);
+      if (state.diskmapTree) {
+        state.diskmapPath = state.diskmapTree.path;
+      }
+    } else {
+      state.diskmapTree = null;
+    }
+  } catch {
+    state.diskmapTree = null;
+  }
+
+  state.diskmapScanning = false;
+  btnDiskmapScan.classList.remove('hidden');
+  btnDiskmapCancel.classList.add('hidden');
+  diskmapScanning.classList.add('hidden');
+
+  if (state.diskmapTree) {
+    diskmapTreemapEl.classList.remove('hidden');
+    diskmapBreadcrumb.classList.remove('hidden');
+    renderDiskmapBreadcrumbs();
+    renderDiskmapTreemap();
+  } else {
+    diskmapEmpty.classList.remove('hidden');
+    diskmapStatus.classList.remove('hidden');
+    diskmapStatus.textContent = t('diskmap.scanFailed');
+  }
+}
+
+/**
+ * Cancel a running disk scan.
+ */
+function cancelDiskScan() {
+  state.diskmapScanning = false;
+  window.wslCleaner.cancelDiskScan();
+  btnDiskmapScan.classList.remove('hidden');
+  btnDiskmapCancel.classList.add('hidden');
+  diskmapScanning.classList.add('hidden');
+  diskmapEmpty.classList.remove('hidden');
+}
+
+// Wire disk map buttons
+btnDiskmapScan.addEventListener('click', startDiskScan);
+btnDiskmapCancel.addEventListener('click', cancelDiskScan);
+
+// Re-render treemap on window resize (debounced)
+let _diskmapResizeTimer = null;
+window.addEventListener('resize', () => {
+  if (state.currentPage !== 'diskmap' || !state.diskmapTree) return;
+  clearTimeout(_diskmapResizeTimer);
+  _diskmapResizeTimer = setTimeout(() => {
+    renderDiskmapTreemap();
+  }, 200);
 });
 
 // ── Stats page ───────────────────────────────────────────────────────────────
@@ -1245,6 +1688,7 @@ localeSelect.addEventListener('change', async () => {
   renderDistroPicker();
   updateVhdxDisplay();
   if (state.currentPage === 'stats') renderStatsPage();
+  if (state.currentPage === 'diskmap') renderDiskMap();
 });
 
 document.addEventListener('locale-changed', () => {
@@ -1255,4 +1699,5 @@ document.addEventListener('locale-changed', () => {
   if (btnSimpleGoLabel) {
     btnSimpleGoLabel.innerHTML = state.compactEnabled ? t('simple.cleanCompact') : t('simple.clean');
   }
+  if (state.currentPage === 'diskmap') renderDiskMap();
 });

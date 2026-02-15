@@ -131,7 +131,18 @@ function getLocale() {
   return currentLocale;
 }
 
+/**
+ * Inject locale strings directly (for tests running outside a browser).
+ * @param {Object} strings - Current locale strings
+ * @param {Object} [fallback] - Fallback (English) strings
+ */
+function _setStringsForTest(strings, fallback) {
+  currentStrings = strings || {};
+  fallbackStrings = fallback || strings || {};
+  buildErrorReverseMap();
+}
+
 // Export for Node.js/test environments; in browser these are just globals
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { t, tp, tError, applyI18n, loadLocale, setLocale, getLocale };
+  module.exports = { t, tp, tError, applyI18n, loadLocale, setLocale, getLocale, _setStringsForTest };
 }

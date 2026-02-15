@@ -92,6 +92,12 @@
             </svg>
             <span data-i18n="nav.stats">Stats</span>
           </a>
+          <a class="nav-item" data-page="diskmap">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="4"/><rect x="14" y="10" width="7" height="3"/><rect x="3" y="13" width="7" height="8"/><rect x="14" y="16" width="7" height="5"/>
+            </svg>
+            <span data-i18n="nav.diskmap">Disk Map</span>
+          </a>
           <div class="nav-spacer"></div>
           <a class="nav-item" data-page="about">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -206,6 +212,18 @@
             <!-- Cleanup tasks -->
             <h2 class="section-title" data-i18n="settings.tasksTitle">Cleanup Tasks</h2>
             <p class="section-desc" data-i18n="settings.tasksDesc">Choose which cleanup tasks the Cleaner will run. Your selections are saved automatically.</p>
+
+            <!-- Search & filters -->
+            <div class="task-filters">
+              <div class="task-search-wrap">
+                <svg class="task-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="text" id="task-search" class="task-search"
+                       data-i18n-placeholder="settings.searchPlaceholder"
+                       placeholder="Search tasks..." autocomplete="off" />
+              </div>
+            </div>
 
             <div id="task-cards"></div>
 
@@ -337,6 +355,51 @@
             </div>
           </div>
 
+          <!-- ════ Disk Map Page ════ -->
+          <div id="page-diskmap" class="page hidden">
+            <div class="diskmap-toolbar">
+              <div class="diskmap-toolbar-left">
+                <label class="diskmap-label" data-i18n="diskmap.distro">Distro</label>
+                <select id="diskmap-distro" class="diskmap-select"></select>
+                <label class="diskmap-label" data-i18n="diskmap.depth">Depth</label>
+                <select id="diskmap-depth" class="diskmap-select">
+                  <option value="2">2</option>
+                  <option value="3" selected>3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </div>
+              <div class="diskmap-toolbar-right">
+                <button id="btn-diskmap-scan" class="btn-primary btn-diskmap-scan">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <span data-i18n="diskmap.scan">Scan</span>
+                </button>
+                <button id="btn-diskmap-cancel" class="btn-outline btn-diskmap-cancel hidden">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                  <span data-i18n="diskmap.cancel">Cancel</span>
+                </button>
+              </div>
+            </div>
+            <div id="diskmap-breadcrumb" class="diskmap-breadcrumb hidden"></div>
+            <div id="diskmap-status" class="diskmap-status hidden"></div>
+            <div id="diskmap-treemap" class="diskmap-treemap"></div>
+            <div id="diskmap-empty" class="diskmap-empty">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="4"/><rect x="14" y="10" width="7" height="3"/><rect x="3" y="13" width="7" height="8"/><rect x="14" y="16" width="7" height="5"/>
+              </svg>
+              <p data-i18n="diskmap.empty">Select a distro and click Scan to visualize disk usage.</p>
+            </div>
+            <div id="diskmap-scanning" class="diskmap-scanning hidden">
+              <div class="spinner"></div>
+              <p data-i18n="diskmap.scanning">Scanning filesystem...</p>
+              <p class="diskmap-scanning-sub" data-i18n="diskmap.scanningDesc">Running du inside WSL. This may take a moment for large filesystems.</p>
+            </div>
+          </div>
+
           <!-- ════ About Page ════ -->
           <div id="page-about" class="page hidden">
             <div class="about-center">
@@ -415,6 +478,7 @@
   <script src="i18n.js"></script>
   <script src="tasks.js"></script>
   <script src="chart.umd.min.js"></script>
+  <script src="treemap.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
