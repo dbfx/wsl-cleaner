@@ -1,6 +1,6 @@
 {
   "name": "wsl-cleaner",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Clean and reclaim disk space from WSL2",
   "main": "main.js",
   "scripts": {

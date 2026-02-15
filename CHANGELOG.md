@@ -1,3 +1,12 @@
+# [1.1.0](https://github.com/dbfx/wsl-cleaner/compare/v1.0.3...v1.1.0) (2026-02-15)
+
+
+### Features
+
+* stats tracking ([e1fb6b7](https://github.com/dbfx/wsl-cleaner/commit/e1fb6b78d43506b0d84a9df9b5e9434637e7b9fe))
+
+
+
 ## [1.0.2](https://github.com/dbfx/wsl-cleaner/compare/v1.0.1...v1.0.2) (2026-02-15)
 
 
