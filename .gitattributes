@@ -1,0 +1,12 @@
+# Auto-detect text files and normalise line endings to LF in the repo
+* text=auto eol=lf
+
+# Ensure Windows-specific files keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files
+*.ico binary
+*.png binary
+*.exe binary
