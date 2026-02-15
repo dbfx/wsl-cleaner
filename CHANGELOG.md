@@ -1,3 +1,12 @@
+## [1.0.2](https://github.com/dbfx/wsl-cleaner/compare/v1.0.1...v1.0.2) (2026-02-15)
+
+
+### Features
+
+* distro selection, code improvement, tests. ci ([f52cb15](https://github.com/dbfx/wsl-cleaner/commit/f52cb157474c4dad73ea6a69ab3da3468cf2d9ed))
+
+
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
