@@ -104,7 +104,7 @@ const TASKS = [
     id: 'snap-old-revisions',
     name: 'Remove Old Snap Revisions',
     desc: 'Removes disabled snap revisions sitting in <code>/var/lib/snapd/snaps</code>. Can reclaim several GB.',
-    command: 'snap list --all 2>/dev/null | awk "/disabled/{print \\$1, \\$3}" | while read snapname revision; do echo "Removing $snapname revision $revision"; snap remove "$snapname" --revision="$revision" 2>/dev/null; done; echo "Old snap revisions removed"',
+    command: "snap list --all 2>/dev/null | awk '/disabled/{print $1, $3}' | while read snapname revision; do echo \"Removing $snapname revision $revision\"; snap remove \"$snapname\" --revision=\"$revision\" 2>/dev/null; done; echo \"Old snap revisions removed\"",
     asRoot: true,
     requires: 'snap',
     category: 'pkg-managers',
