@@ -31,7 +31,7 @@ describe('distro management exports', () => {
     const expectedExports = [
       'wslEnv', 'checkWsl', 'detectTools', 'runCleanupTask',
       'findVhdx', 'getFileSize', 'runWslCommand',
-      'scanStaleDirs', 'deleteStaleDirs', 'optimizeVhdx',
+      'buildStaleScanScript', 'scanStaleDirs', 'deleteStaleDirs', 'optimizeVhdx',
       'estimateTaskSizes', 'scanDiskUsage', 'cancelDiskScan', 'getHealthInfo',
       'exportDistro', 'importDistro', 'cloneDistro', 'restartDistro', 'getDistroComparison',
     ];
