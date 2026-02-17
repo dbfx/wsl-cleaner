@@ -1,3 +1,7 @@
+## [1.7.1](https://github.com/dbfx/wsl-cleaner/compare/v1.7.0...v1.7.1) (2026-02-17)
+
+
+
 # [1.7.0](https://github.com/dbfx/wsl-cleaner/compare/v1.6.0...v1.7.0) (2026-02-17)
 
 
