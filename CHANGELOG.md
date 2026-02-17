@@ -1,3 +1,12 @@
+# [1.7.0](https://github.com/dbfx/wsl-cleaner/compare/v1.6.0...v1.7.0) (2026-02-17)
+
+
+### Features
+
+* only remove files in git folders that are ignored ([610f0cf](https://github.com/dbfx/wsl-cleaner/commit/610f0cf023c98b48ebb52e5bd4e20b26bd8c2b42))
+
+
+
 # [1.6.0](https://github.com/dbfx/wsl-cleaner/compare/v1.5.0...v1.6.0) (2026-02-15)
 
 
