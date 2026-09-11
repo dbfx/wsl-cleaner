@@ -65,7 +65,7 @@
     "electron": "^40.4.1",
     "electron-builder": "^26.0.0",
     "openai": "^6.22.0",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.11"
   },
   "dependencies": {
     "electron-log": "^5.4.3",
