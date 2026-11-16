@@ -134,6 +134,11 @@
   "compact.notFound": "Not found",
   "compact.noVhdx": "✗ No VHDX file found. Cannot compact. The virtual disk may be in a non-standard location.",
   "compact.multiDisk": "{count} virtual disks ({distros})",
+  "compact.chooseVhdx": "Set VHDX path",
+  "compact.chooseVhdxForDistro": "Select the VHDX file for {distro}",
+  "compact.chooseVhdxOneDistro": "Select one distribution to set its VHDX path.",
+  "compact.invalidVhdx": "Select an existing .vhdx file.",
+  "compact.chooseVhdxFailed": "Could not set the VHDX path.",
 
   "stats.title": "Cleanup Stats",
   "stats.desc": "Track your cleanup history and see how much space you've recovered over time.",
