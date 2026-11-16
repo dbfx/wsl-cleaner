@@ -86,6 +86,8 @@ const compactEnabledCb = $('#compact-enabled-cb');
 
 // Cleaner page
 const simpleSize = $('#simple-size');
+const btnVhdxPath = $('#btn-vhdx-path');
+const vhdxPathStatus = $('#vhdx-path-status');
 const btnSimpleGo = $('#btn-simple-go');
 const simpleSteps = $('#simple-steps');
 const simpleResult = $('#simple-result');
@@ -489,46 +491,114 @@ distroDropdown.addEventListener('click', (e) => {
   e.stopPropagation();
 });
 
+const vhdxPathKey = (distro) => `wsl-cleaner-vhdx-path:${distro}`;
+let distroRefreshGeneration = 0;
+
 async function refreshDistroData() {
-  // Detect tools and VHDX for each selected distro
-  state.toolsByDistro = {};
-  state.vhdxByDistro = {};
-
-  for (const distro of state.selectedDistros) {
-    state.toolsByDistro[distro] = await window.wslCleaner.detectTools(distro);
-    state.vhdxByDistro[distro] = await window.wslCleaner.findVhdx(distro);
-  }
-
-  // Merge tools: available if ANY selected distro has it
-  const mergedTools = {};
-  for (const distro of state.selectedDistros) {
-    const dt = state.toolsByDistro[distro] || {};
-    for (const [key, val] of Object.entries(dt)) {
-      if (val) mergedTools[key] = true;
-      else if (!(key in mergedTools)) mergedTools[key] = false;
-    }
-  }
-  state.tools = mergedTools;
-
-  // Merge VHDX files with distro annotation
+  const generation = ++distroRefreshGeneration;
+  const selectedDistros = [...state.selectedDistros];
+  const toolsByDistro = Object.create(null);
+  const vhdxByDistro = Object.create(null);
+  btnVhdxPath.disabled = true;
   state.vhdxFiles = [];
+
+  try {
+    for (const distro of selectedDistros) {
+      toolsByDistro[distro] = await window.wslCleaner.detectTools(distro);
+      const savedPath = localStorage.getItem(vhdxPathKey(distro));
+      if (savedPath) {
+        const file = await window.wslCleaner.getFileSize(savedPath);
+        vhdxByDistro[distro] = file.ok ? [{ path: savedPath, size: file.size }] : [];
+      } else {
+        vhdxByDistro[distro] = await window.wslCleaner.findVhdx(distro);
+      }
+    }
+    if (generation !== distroRefreshGeneration) return;
+
+    // Merge tools: available if ANY selected distro has it
+    const mergedTools = {};
+    for (const tools of Object.values(toolsByDistro)) {
+      for (const [key, val] of Object.entries(tools)) {
+        if (val) mergedTools[key] = true;
+        else if (!(key in mergedTools)) mergedTools[key] = false;
+      }
+    }
+    state.tools = mergedTools;
+    state.toolsByDistro = toolsByDistro;
+    state.vhdxByDistro = vhdxByDistro;
+
+    renderTasks();
+    updateVhdxFiles();
+    clearEstimates();
+    // Show the simple estimate button now that distros are loaded
+    simpleEstimate.classList.remove('hidden');
+    simpleEstimateResult.classList.add('hidden');
+
+    if (state.currentPage === 'settings') refreshSettingsEstimates();
+  } finally {
+    if (generation === distroRefreshGeneration) btnVhdxPath.disabled = false;
+  }
+}
+
+function updateVhdxFiles() {
+  const files = new Map();
   for (const distro of state.selectedDistros) {
-    const files = state.vhdxByDistro[distro] || [];
-    for (const f of files) {
-      state.vhdxFiles.push({ ...f, distro });
+    for (const file of state.vhdxByDistro[distro] || []) {
+      const key = file.path.toLowerCase();
+      if (!files.has(key) || localStorage.getItem(vhdxPathKey(distro)) === file.path) {
+        files.set(key, { ...file, distro });
+      }
     }
   }
-
-  renderTasks();
+  state.vhdxFiles = [...files.values()];
+  const [distro] = state.selectedDistros;
+  const missing = state.selectedDistros.length === 1 && localStorage.getItem(vhdxPathKey(distro)) && !files.size;
+  setVhdxPathStatus(missing ? 'compact.invalidVhdx' : '');
   updateVhdxDisplay();
-  clearEstimates();
-  // Show the simple estimate button now that distros are loaded
-  simpleEstimate.classList.remove('hidden');
-  simpleEstimateResult.classList.add('hidden');
-
-  // Re-run background size estimation if currently on the Settings page
-  if (state.currentPage === 'settings') refreshSettingsEstimates();
 }
+
+function setVhdxPathStatus(key) {
+  vhdxPathStatus.dataset.i18n = key;
+  vhdxPathStatus.textContent = key ? t(key) : '';
+  vhdxPathStatus.classList.toggle('hidden', !key);
+}
+
+btnVhdxPath.addEventListener('click', async () => {
+  if (state.isRunning || btnVhdxPath.disabled) return;
+  if (state.selectedDistros.length !== 1) {
+    setVhdxPathStatus('compact.chooseVhdxOneDistro');
+    return;
+  }
+
+  const [distro] = state.selectedDistros;
+  const key = vhdxPathKey(distro);
+  state.isRunning = true;
+  btnVhdxPath.disabled = true;
+  try {
+    const result = await window.wslCleaner.showOpenDialog({
+      title: t('compact.chooseVhdxForDistro', { distro }),
+      defaultPath: localStorage.getItem(key) || undefined,
+      filters: [{ name: 'VHDX', extensions: ['vhdx'] }],
+      properties: ['openFile'],
+    });
+    if (result.canceled || !result.filePaths.length) return;
+    const [filePath] = result.filePaths;
+    const file = /\.vhdx$/i.test(filePath) ? await window.wslCleaner.getFileSize(filePath) : null;
+    if (!file?.ok) {
+      setVhdxPathStatus('compact.invalidVhdx');
+      return;
+    }
+
+    localStorage.setItem(key, filePath);
+    state.vhdxByDistro[distro] = [{ path: filePath, size: file.size }];
+    updateVhdxFiles();
+  } catch {
+    setVhdxPathStatus('compact.chooseVhdxFailed');
+  } finally {
+    btnVhdxPath.disabled = false;
+    state.isRunning = false;
+  }
+});
 
 function updateVhdxDisplay() {
   if (state.vhdxFiles.length > 0) {
@@ -546,6 +616,7 @@ function updateVhdxDisplay() {
     simpleSize.textContent = formatBytes(totalSize);
   } else {
     vhdxPathEl.textContent = t('compact.notFound');
+    vhdxPathEl.title = '';
     vhdxSizeEl.textContent = '--';
     simpleSize.textContent = '--';
   }

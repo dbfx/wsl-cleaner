@@ -1151,6 +1151,7 @@ a:hover {
 }
 
 .vhdx-row .value {
+  overflow-wrap: anywhere;
   font-size: 13px;
   color: var(--text-primary);
 }
@@ -1463,6 +1464,19 @@ a:hover {
 }
 
 /* ── Cleaner Page ────────────────────────────────────────────────────────── */
+.vhdx-path-controls {
+  margin-bottom: 12px;
+}
+.vhdx-path-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.vhdx-path-status {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
 #page-cleaner {
   display: flex;
   align-items: flex-start;
